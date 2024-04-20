@@ -27,6 +27,8 @@ private:
     // Publisher
     // ros::Publisher gps_path_pub;
     ros::Publisher odom_path_pub;
+    ros::Publisher wio_path_pub;
+    ros::Publisher vo_path_pub;
     ros::Publisher estimated_path_pub;
     ros::Publisher estimated_pose_pub;
 
@@ -43,6 +45,8 @@ private:
     // publish data
     // nav_msgs::Path gps_path;
     nav_msgs::Path odom_path;
+    nav_msgs::Path wio_path;
+    nav_msgs::Path vo_path;
     nav_msgs::Path estimated_path;
     nav_msgs::Odometry estimated_pose;
 
@@ -63,7 +67,6 @@ private:
     // GEOGRAPHY geography;
 
     nav_msgs::OdometryConstPtr wo_msg; // Member variable to store and update odom_msg
-
 
 public:
     // Init
@@ -130,19 +133,31 @@ ROS_Interface::ROS_Interface(ros::NodeHandle &n)
     // Publisher
     // gps_path_pub = nh.advertise<nav_msgs::Path>("/gps_path", 10);
     odom_path_pub = nh.advertise<nav_msgs::Path>("/odom_path", 10);
+    wio_path_pub = nh.advertise<nav_msgs::Path>("/wio_path", 10);
+    vo_path_pub = nh.advertise<nav_msgs::Path>("/vo_path", 10);
     estimated_path_pub = nh.advertise<nav_msgs::Path>("/estimated_path", 10);
     estimated_pose_pub = nh.advertise<nav_msgs::Odometry>("/estimated_pose", 10);
 
     // Subscriber
     // gps_sub = nh.subscribe("/fix", 10, &ROS_Interface::gps_callback, this);
-    odom_sub = nh.subscribe("/odom", 10, &ROS_Interface::odom_callback, this);
-    imu_sub = nh.subscribe("/imu/data/corrected", 10, &ROS_Interface::imu_callback, this);
-    visual_odom_sub = nh.subscribe("orb_slam2_rgbd/visual_odom", 10, &ROS_Interface::visual_odom_callback, this);
+    odom_sub = nh.subscribe("/wo_sync", 10, &ROS_Interface::odom_callback, this);
+    imu_sub = nh.subscribe("/imu_sync", 10, &ROS_Interface::imu_callback, this);
+    visual_odom_sub = nh.subscribe("/vo_sync", 10, &ROS_Interface::visual_odom_callback, this);
 
     // init odom_path
     odom_path.header.frame_id = "map";
     odom_path.header.stamp = ros::Time::now();
     odom_path.header.seq = 0;
+
+    // init wio_path
+    wio_path.header.frame_id = "map";
+    wio_path.header.stamp = ros::Time::now();
+    wio_path.header.seq = 0;
+
+    // init vo_path
+    vo_path.header.frame_id = "map";
+    vo_path.header.stamp = ros::Time::now();
+    vo_path.header.seq = 0;
 
     // init estimated_path
     estimated_path.header.frame_id = "map";
@@ -190,7 +205,7 @@ ROS_Interface::~ROS_Interface()
 
 void ROS_Interface::odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
 {
-    
+
     wo_msg = odom_msg; // store and update the information of odom_msg
 
     // If the system have NOT been INITIALIZED
@@ -203,21 +218,6 @@ void ROS_Interface::odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
     {
         printf("ESKF_Init Status: %d\n", init);
     }
-
-
-    // publish odom_path
-    geometry_msgs::PoseStamped point;
-    point.header.frame_id = "map";
-    point.header.stamp = ros::Time::now();
-    point.pose.position.x = odom_msg->pose.pose.position.x;
-    point.pose.position.y = odom_msg->pose.pose.position.y;
-    point.pose.position.z = 0.0;
-    point.pose.orientation.w = odom_msg->pose.pose.orientation.w;
-    point.pose.orientation.x = odom_msg->pose.pose.orientation.x;
-    point.pose.orientation.y = odom_msg->pose.pose.orientation.y;
-    point.pose.orientation.z = odom_msg->pose.pose.orientation.z;
-    odom_path.poses.push_back(point);
-    odom_path_pub.publish(odom_path);
 }
 
 void ROS_Interface::imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
@@ -300,7 +300,7 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 {
     // Create a new nav_msgs::Odometry object
     nav_msgs::Odometry vo;
-    
+
     // Inter-frame Visual Odometry
     data_conversion_vo(vodom_msg, wio_data, vo);
 
@@ -313,6 +313,48 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
     // ESKF Error_State_Reset
     eskf.Error_State_Reset(x);
 
+    // publish odom_path
+    geometry_msgs::PoseStamped wo_point;
+    wo_point.header.frame_id = "map";
+    wo_point.header.stamp = ros::Time::now();
+    wo_point.pose.position.x = wo_msg->pose.pose.position.x;
+    wo_point.pose.position.y = wo_msg->pose.pose.position.y;
+    wo_point.pose.position.z = 0.0;
+    wo_point.pose.orientation.w = wo_msg->pose.pose.orientation.w;
+    wo_point.pose.orientation.x = wo_msg->pose.pose.orientation.x;
+    wo_point.pose.orientation.y = wo_msg->pose.pose.orientation.y;
+    wo_point.pose.orientation.z = wo_msg->pose.pose.orientation.z;
+    odom_path.poses.push_back(wo_point);
+    odom_path_pub.publish(odom_path);
+
+    // publish wio_path
+    geometry_msgs::PoseStamped wio_point;
+    wio_point.header.frame_id = "map";
+    wio_point.header.stamp = ros::Time::now();
+    wio_point.pose.position.x = wio_data.position[0];
+    wio_point.pose.position.y = wio_data.position[1];
+    wio_point.pose.position.z = 0.0;
+    wio_point.pose.orientation.w = wio_data.orientation.w();
+    wio_point.pose.orientation.x = wio_data.orientation.x();
+    wio_point.pose.orientation.y = wio_data.orientation.y();
+    wio_point.pose.orientation.z = wio_data.orientation.z();
+    wio_path.poses.push_back(wio_point);
+    wio_path_pub.publish(wio_path);
+
+    // publish vo_path
+    geometry_msgs::PoseStamped vo_point;
+    vo_point.header.frame_id = "map";
+    vo_point.header.stamp = ros::Time::now();
+    vo_point.pose.position.x = vodom_msg->pose.pose.position.x;
+    vo_point.pose.position.y = vodom_msg->pose.pose.position.y;
+    vo_point.pose.position.z = 0.0;
+    vo_point.pose.orientation.w = vodom_msg->pose.pose.orientation.w;
+    vo_point.pose.orientation.x = vodom_msg->pose.pose.orientation.x;
+    vo_point.pose.orientation.y = vodom_msg->pose.pose.orientation.y;
+    vo_point.pose.orientation.z = vodom_msg->pose.pose.orientation.z;
+    vo_path.poses.push_back(vo_point);
+    vo_path_pub.publish(vo_path);
+
     // publish estimated_pose
     estimated_pose.pose.pose.position.x = x.position[0];
     estimated_pose.pose.pose.position.y = x.position[1];
@@ -324,17 +366,17 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
     estimated_pose_pub.publish(estimated_pose);
 
     // /odom to /base_link transform broadcast
-    odom_to_baselink.header.stamp = ros::Time::now();
-    odom_to_baselink.header.frame_id = "odom";
-    odom_to_baselink.child_frame_id = "base_link";
-    odom_to_baselink.transform.translation.x = x.position[0];
-    odom_to_baselink.transform.translation.y = x.position[1];
-    odom_to_baselink.transform.translation.z = 0.0;
-    odom_to_baselink.transform.rotation.x = x.quaternion.x();
-    odom_to_baselink.transform.rotation.y = x.quaternion.y();
-    odom_to_baselink.transform.rotation.z = x.quaternion.z();
-    odom_to_baselink.transform.rotation.w = x.quaternion.w();
-    odom_to_baselink_broadcaster.sendTransform(odom_to_baselink);
+    // odom_to_baselink.header.stamp = ros::Time::now();
+    // odom_to_baselink.header.frame_id = "odom";
+    // odom_to_baselink.child_frame_id = "base_link";
+    // odom_to_baselink.transform.translation.x = x.position[0];
+    // odom_to_baselink.transform.translation.y = x.position[1];
+    // odom_to_baselink.transform.translation.z = 0.0;
+    // odom_to_baselink.transform.rotation.x = x.quaternion.x();
+    // odom_to_baselink.transform.rotation.y = x.quaternion.y();
+    // odom_to_baselink.transform.rotation.z = x.quaternion.z();
+    // odom_to_baselink.transform.rotation.w = x.quaternion.w();
+    // odom_to_baselink_broadcaster.sendTransform(odom_to_baselink);
 
     // publish estimated_path
     geometry_msgs::PoseStamped estimated_point;

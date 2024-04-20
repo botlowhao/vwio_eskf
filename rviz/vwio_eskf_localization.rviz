@@ -7,9 +7,10 @@ Panels:
         - /Global Options1
         - /Status1
         - /Path1
-        - /TF1
-        - /TF1/Status1
+        - /Path2
         - /TF1/Frames1
+        - /Path3
+        - /Path4
       Splitter Ratio: 0.574999988079071
     Tree Height: 719
   - Class: rviz/Selection
@@ -63,7 +64,7 @@ Visualization Manager:
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
-      Line Style: Billboards
+      Line Style: Lines
       Line Width: 1
       Name: Path
       Offset:
@@ -80,22 +81,6 @@ Visualization Manager:
       Unreliable: false
       Value: true
     - Alpha: 1
-      Axes Length: 1
-      Axes Radius: 0.10000000149011612
-      Class: rviz/Pose
-      Color: 255; 25; 0
-      Enabled: true
-      Head Length: 0.30000001192092896
-      Head Radius: 0.10000000149011612
-      Name: Pose
-      Queue Size: 10
-      Shaft Length: 1
-      Shaft Radius: 0.05000000074505806
-      Shape: Axes
-      Topic: /gps_pose
-      Unreliable: false
-      Value: true
-    - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 0; 255; 255
@@ -103,7 +88,7 @@ Visualization Manager:
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
-      Line Style: Billboards
+      Line Style: Lines
       Line Width: 2
       Name: Path
       Offset:
@@ -160,8 +145,6 @@ Visualization Manager:
           Value: true
         mount_xtion_pro_link:
           Value: false
-        odom:
-          Value: true
         plate_bottom_link:
           Value: false
         plate_middle_link:
@@ -215,12 +198,6 @@ Visualization Manager:
           {}
         map:
           base_link:
-            camera_rgb_frame:
-              camera_depth_frame:
-                camera_depth_optical_frame:
-                  {}
-              camera_rgb_optical_frame:
-                {}
             caster_back_link:
               {}
             caster_front_link:
@@ -237,7 +214,12 @@ Visualization Manager:
               {}
             laser:
               camera_link:
-                {}
+                camera_depth_frame:
+                  camera_depth_optical_frame:
+                    {}
+                camera_rgb_frame:
+                  camera_rgb_optical_frame:
+                    {}
             mount_xtion_pro_link:
               {}
             plate_bottom_link:
@@ -282,9 +264,55 @@ Visualization Manager:
               {}
             wheel_right_link:
               {}
-          odom:
-            {}
       Update Interval: 0
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 252; 233; 79
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /wio_path
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 239; 41; 41
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /vo_path
+      Unreliable: false
       Value: true
   Enabled: true
   Global Options:
@@ -313,8 +341,8 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Class: rviz/Orbit
-      Distance: 0.00964629277586937
+      Class: rviz/ThirdPersonFollower
+      Distance: 4.666919708251953
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -322,17 +350,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 10.256969451904297
-        Y: -10.9705228805542
-        Z: 9.311897277832031
+        X: 2.1755945682525635
+        Y: -1.320436954498291
+        Z: -1.7090724213630892e-05
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.569796621799469
+      Pitch: 0.9497969150543213
       Target Frame: <Fixed Frame>
-      Yaw: 5.81402587890625
+      Yaw: 4.629342555999756
     Saved: ~
 Window Geometry:
   Displays:
