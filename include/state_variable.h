@@ -32,6 +32,19 @@ struct WIO_Data
     Eigen::Vector3d angular_vel;
     Eigen::Vector3d acc;
     Eigen::Vector3d gyro;
+    double yaw_angle;
+
+    WIO_Data() : 
+        timestamp(0.0),
+        position(Eigen::Vector3d(0.0, 0.0, 0.0)),
+        orientation(Eigen::Quaterniond::Identity()),
+        linear_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
+        angular_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
+        acc(Eigen::Vector3d(0.0, 0.0, 0.0)),
+        gyro(Eigen::Vector3d(0.0, 0.0, 0.0)),
+        yaw_angle(0.0)
+    {}
+
 
 };
 

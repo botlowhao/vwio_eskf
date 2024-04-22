@@ -16,6 +16,8 @@
 #include "eskf.h"
 #include "state_variable.h"
 
+int yaw_flag = 0; 
+
 using namespace std;
 
 class ROS_Interface
@@ -67,6 +69,11 @@ private:
     // GEOGRAPHY geography;
 
     nav_msgs::OdometryConstPtr wo_msg; // Member variable to store and update odom_msg
+
+    // calculate yaw angle
+    double current_yaw;
+    double prev_yaw;
+    double delta_yaw;
 
 public:
     // Init
@@ -206,6 +213,19 @@ ROS_Interface::~ROS_Interface()
 void ROS_Interface::odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
 {
 
+    // Convert geometry_msgs::Quaternion to Eigen::Quaterniond
+    Eigen::Quaterniond quaternion(
+        odom_msg->pose.pose.orientation.w,
+        odom_msg->pose.pose.orientation.x,
+        odom_msg->pose.pose.orientation.y,
+        odom_msg->pose.pose.orientation.z);
+
+    // Calculate yaw angle from quaternion
+    double current_yaw_from_wo = quaternion.toRotationMatrix().eulerAngles(0, 1, 2)[2];
+
+    // Output yaw angle (Sky Blue color)
+    ROS_INFO_STREAM("\033[1;34mcurrent_yaw_from_wo: " << current_yaw_from_wo * 180.0 / M_PI << "\033[0m");
+
     wo_msg = odom_msg; // store and update the information of odom_msg
 
     // If the system have NOT been INITIALIZED
@@ -239,7 +259,7 @@ void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg,
     // previous linear velocity
     static Eigen::Vector3d prev_linear_vel;
 
-    // previous linear velocity
+    // previous angular velocity
     static Eigen::Vector3d prev_angular_vel;
 
     // timestamp
@@ -287,12 +307,35 @@ void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg,
                                               imu_msg->orientation.y,
                                               imu_msg->orientation.z);
 
-    // yaw_angle
-    double yaw_angle = yaw_angle + wio_data.angular_vel[2] * dt;
+    // current_yaw
+    current_yaw = wio_data.orientation.toRotationMatrix().eulerAngles(0, 1, 2)[2]; // yaw from orientation
+    ROS_INFO("\033[1;32mcurrent_yaw: %.2f\033[0m", current_yaw * 180.0 / M_PI);
+
+    if (yaw_flag == 0)
+    {
+        current_yaw = prev_yaw;
+
+        yaw_flag = 1;
+    }
+
+    // Calculate delta_yaw
+    delta_yaw = current_yaw - prev_yaw;
+
+    if (delta_yaw < 0.1 && delta_yaw > -0.1)
+    {
+        delta_yaw = 0;
+    }
+
+    // Update and accumulate yaw angle
+    wio_data.yaw_angle = wio_data.yaw_angle + delta_yaw;
+    ROS_INFO("\033[1;31mwio_data.yaw_angle: %.2f degrees\033[0m", wio_data.yaw_angle * 180.0 / M_PI); 
+
+    // update the previous yaw angle
+    prev_yaw = current_yaw;
 
     // position
-    wio_data.position = Eigen::Vector3d(wio_data.position[0] + wio_data.linear_vel[0] * cos(yaw_angle) * dt,
-                                        wio_data.position[1] + wio_data.linear_vel[0] * sin(yaw_angle) * dt,
+    wio_data.position = Eigen::Vector3d(wio_data.position[0] + wio_data.linear_vel[0] * cos(current_yaw) * dt,
+                                        wio_data.position[1] + wio_data.linear_vel[0] * sin(current_yaw) * dt,
                                         0.0);
 }
 
