@@ -1,5 +1,5 @@
 # vwio_eskf
-ESKF Algorithm for Muti-Sensor Fusion(Wheel Odometry, IMU, Visual Odometry)
+ROS1 Package Using ESKF Method for Muti-Sensor Fusion(Wheel Odometry, IMU, Visual Odometry)
 
 ## Overview
 This repository contains an implementation of an Error-State Kalman Filter (ESKF) algorithm for multi-sensor fusion. The fusion involves Wheel Odometry (WO), Inertial Measurement Unit (IMU), and Visual Odometry (VO) sensors.
