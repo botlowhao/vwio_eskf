@@ -16,7 +16,7 @@
 #include "eskf.h"
 #include "state_variable.h"
 
-int yaw_flag = 0; 
+int yaw_flag = 0;
 
 using namespace std;
 
@@ -74,6 +74,13 @@ private:
     double current_yaw;
     double prev_yaw;
     double delta_yaw;
+
+private:
+    /**
+     * @brief calculate the RPY angle by wio_data
+     *
+     */
+    double calculateImuOrientation(const Eigen::Quaterniond &imu_orientation);
 
 public:
     // Init
@@ -220,11 +227,22 @@ void ROS_Interface::odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
         odom_msg->pose.pose.orientation.y,
         odom_msg->pose.pose.orientation.z);
 
-    // Calculate yaw angle from quaternion
-    double current_yaw_from_wo = quaternion.toRotationMatrix().eulerAngles(0, 1, 2)[2];
+    // Calculate roll, pitch, and yaw angles from quaternion
+    Eigen::Vector3d euler_angles = quaternion.toRotationMatrix().eulerAngles(0, 1, 2);
+    double current_roll_from_wo = euler_angles[0];
+    double current_pitch_from_wo = euler_angles[1];
+    double current_yaw_from_wo = euler_angles[2];
 
-    // Output yaw angle (Sky Blue color)
-    ROS_INFO_STREAM("\033[1;34mcurrent_yaw_from_wo: " << current_yaw_from_wo * 180.0 / M_PI << "\033[0m");
+    ROS_INFO("\033[1;35mWO Orientation: Roll=%f, Pitch=%f, Yaw=%f\036",
+             current_roll_from_wo * 180.0 / M_PI,
+             current_pitch_from_wo * 180.0 / M_PI,
+             current_yaw_from_wo * 180.0 / M_PI);
+
+    // ROS_INFO("\033[1;35mIMU Orientation: Roll=%f, Pitch=%f, Yaw=%f\033[0m",
+    //      current_roll_from_wo * 180.0 / M_PI,
+    //      current_pitch_from_wo * 180.0 / M_PI,
+    //      current_yaw_from_wo * 180.0 / M_PI);
+
 
     wo_msg = odom_msg; // store and update the information of odom_msg
 
@@ -307,9 +325,9 @@ void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg,
                                               imu_msg->orientation.y,
                                               imu_msg->orientation.z);
 
-    // current_yaw
-    current_yaw = wio_data.orientation.toRotationMatrix().eulerAngles(0, 1, 2)[2]; // yaw from orientation
-    ROS_INFO("\033[1;32mcurrent_yaw: %.2f\033[0m", current_yaw * 180.0 / M_PI);
+    current_yaw = calculateImuOrientation(wio_data.orientation);
+
+    // current_yaw = wio_data.orientation.toRotationMatrix().eulerAngles(0, 1, 2)[2]; // yaw from orientation
 
     if (yaw_flag == 0)
     {
@@ -328,15 +346,19 @@ void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg,
 
     // Update and accumulate yaw angle
     wio_data.yaw_angle = wio_data.yaw_angle + delta_yaw;
-    ROS_INFO("\033[1;31mwio_data.yaw_angle: %.2f degrees\033[0m", wio_data.yaw_angle * 180.0 / M_PI); 
+    ROS_INFO("\033[1;31mwio_data.yaw_angle: %.2f degrees\033[0m", wio_data.yaw_angle * 180.0 / M_PI);
 
     // update the previous yaw angle
     prev_yaw = current_yaw;
 
-    // position
-    wio_data.position = Eigen::Vector3d(wio_data.position[0] + wio_data.linear_vel[0] * cos(current_yaw) * dt,
-                                        wio_data.position[1] + wio_data.linear_vel[0] * sin(current_yaw) * dt,
-                                        0.0);
+    // // position
+    // wio_data.position = Eigen::Vector3d(wio_data.position[0] + wio_data.linear_vel[0] * cos(wio_data.yaw_angle) * dt,
+    //                                     wio_data.position[1] + wio_data.linear_vel[0] * sin(wio_data.yaw_angle) * dt,
+    //                                     0.0);
+
+    wio_data.position[0] += wio_data.linear_vel[0] * cos(wio_data.yaw_angle) * dt;
+    wio_data.position[1] += wio_data.linear_vel[0] * sin(wio_data.yaw_angle) * dt;
+    wio_data.position[2] = 0.0;
 }
 
 void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom_msg)
@@ -457,6 +479,38 @@ void ROS_Interface::data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_m
     vo.pose.pose.position.x = wio_data.position[0] + incremental_position[0];
     vo.pose.pose.position.y = wio_data.position[1] + incremental_position[1];
     vo.pose.pose.position.z = 0.0;
+}
+
+double ROS_Interface::calculateImuOrientation(const Eigen::Quaterniond &imu_orientation)
+{
+    // Convert Eigen::Quaterniond to rotation matrix and extract roll, pitch, yaw
+    Eigen::Matrix3d mat_imu = imu_orientation.toRotationMatrix();
+
+    // Calculate roll, pitch, yaw
+    double roll_imu, pitch_imu, yaw_imu;
+    pitch_imu = asin(-mat_imu(2, 0));
+
+    // Check for singularities at the poles
+    if (fabs(pitch_imu - M_PI / 2) < 1.0e-3) // Near the North Pole
+    {
+        roll_imu = 0.0; // Assume roll is 0
+        yaw_imu = atan2(mat_imu(1, 2), mat_imu(0, 2));
+    }
+    else if (fabs(pitch_imu + M_PI / 2) < 1.0e-3) // Near the South Pole
+    {
+        roll_imu = 0.0; // Assume roll is 0
+        yaw_imu = atan2(-mat_imu(1, 2), -mat_imu(0, 2));
+    }
+    else
+    {
+        roll_imu = atan2(mat_imu(2, 1), mat_imu(2, 2));
+        yaw_imu = atan2(mat_imu(1, 0), mat_imu(0, 0));
+    }
+
+    ROS_INFO("\033[1;32mWIO Orientation: Roll=%f, Pitch=%f, Yaw=%f\033[0m",
+             roll_imu * 180.0 / M_PI, pitch_imu * 180.0 / M_PI, yaw_imu * 180.0 / M_PI);
+
+    return yaw_imu;
 }
 
 #endif // ROS_INTERFACE
