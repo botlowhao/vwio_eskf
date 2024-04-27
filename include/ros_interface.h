@@ -16,7 +16,7 @@
 #include "eskf.h"
 #include "state_variable.h"
 
-int yaw_flag = 0;
+// int yaw_flag = 0;
 
 using namespace std;
 
@@ -77,7 +77,7 @@ private:
 
 private:
     /**
-     * @brief calculate the RPY angle by wio_data
+     * @brief calculate the RPY angle by Quternion(w,x,y,z)
      *
      */
     double calculateImuOrientation(const Eigen::Quaterniond &imu_orientation);
@@ -229,20 +229,14 @@ void ROS_Interface::odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
 
     // Calculate roll, pitch, and yaw angles from quaternion
     Eigen::Vector3d euler_angles = quaternion.toRotationMatrix().eulerAngles(0, 1, 2);
-    double current_roll_from_wo = euler_angles[0];
-    double current_pitch_from_wo = euler_angles[1];
-    double current_yaw_from_wo = euler_angles[2];
+    double current_roll_wo = euler_angles[0];
+    double current_pitch_wo = euler_angles[1];
+    double current_yaw_wo = euler_angles[2];
 
-    ROS_INFO("\033[1;35mWO Orientation: Roll=%f, Pitch=%f, Yaw=%f\036",
-             current_roll_from_wo * 180.0 / M_PI,
-             current_pitch_from_wo * 180.0 / M_PI,
-             current_yaw_from_wo * 180.0 / M_PI);
-
-    // ROS_INFO("\033[1;35mIMU Orientation: Roll=%f, Pitch=%f, Yaw=%f\033[0m",
-    //      current_roll_from_wo * 180.0 / M_PI,
-    //      current_pitch_from_wo * 180.0 / M_PI,
-    //      current_yaw_from_wo * 180.0 / M_PI);
-
+    ROS_INFO("\033[1;35mWO Orientation: Roll=%.2f degrees\036, Pitch=%.2f degrees\036, Yaw=%.2f degrees\036",
+             current_roll_wo * 180.0 / M_PI,
+             current_pitch_wo * 180.0 / M_PI,
+             current_yaw_wo * 180.0 / M_PI);
 
     wo_msg = odom_msg; // store and update the information of odom_msg
 
@@ -261,6 +255,7 @@ void ROS_Interface::odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
 void ROS_Interface::imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
 {
     double dt = 0.0;
+    delta_yaw = 0.0;
     data_conversion_wio(imu_msg, wio_data, dt);
 
     // If the system have NOT been INITIALIZED
@@ -325,36 +320,33 @@ void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg,
                                               imu_msg->orientation.y,
                                               imu_msg->orientation.z);
 
-    current_yaw = calculateImuOrientation(wio_data.orientation);
+    // current_yaw = calculateImuOrientation(wio_data.orientation);
 
-    // current_yaw = wio_data.orientation.toRotationMatrix().eulerAngles(0, 1, 2)[2]; // yaw from orientation
+    // Calculate the yaw angle change
+    delta_yaw = wio_data.angular_vel[2] * dt;
 
-    if (yaw_flag == 0)
+    ROS_INFO("\033[1;33mdelta_yaw: %.2f degrees\037", delta_yaw * 180.0 / M_PI);
+
+    if (delta_yaw < 0.01 && delta_yaw > -0.01)
     {
-        current_yaw = prev_yaw;
-
-        yaw_flag = 1;
-    }
-
-    // Calculate delta_yaw
-    delta_yaw = current_yaw - prev_yaw;
-
-    if (delta_yaw < 0.1 && delta_yaw > -0.1)
-    {
-        delta_yaw = 0;
+        delta_yaw = 0.0;
     }
 
     // Update and accumulate yaw angle
-    wio_data.yaw_angle = wio_data.yaw_angle + delta_yaw;
+    wio_data.yaw_angle += delta_yaw;
+
+    // Limit yaw angle to range [-π, π]
+    wio_data.yaw_angle = std::fmod(wio_data.yaw_angle, 2 * M_PI);
+    if (wio_data.yaw_angle > M_PI)
+    {
+        wio_data.yaw_angle -= 2 * M_PI;
+    }
+    else if (wio_data.yaw_angle < -M_PI)
+    {
+        wio_data.yaw_angle += 2 * M_PI;
+    }
+
     ROS_INFO("\033[1;31mwio_data.yaw_angle: %.2f degrees\033[0m", wio_data.yaw_angle * 180.0 / M_PI);
-
-    // update the previous yaw angle
-    prev_yaw = current_yaw;
-
-    // // position
-    // wio_data.position = Eigen::Vector3d(wio_data.position[0] + wio_data.linear_vel[0] * cos(wio_data.yaw_angle) * dt,
-    //                                     wio_data.position[1] + wio_data.linear_vel[0] * sin(wio_data.yaw_angle) * dt,
-    //                                     0.0);
 
     wio_data.position[0] += wio_data.linear_vel[0] * cos(wio_data.yaw_angle) * dt;
     wio_data.position[1] += wio_data.linear_vel[0] * sin(wio_data.yaw_angle) * dt;
