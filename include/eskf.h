@@ -4,9 +4,7 @@
 #include <iostream>
 #include "state_variable.h"
 
-
 using namespace std;
-
 
 class ESKF
 {
@@ -24,6 +22,9 @@ private:
     Eigen::Matrix<double, 18, 18> Fx;
     Eigen::Matrix<double, 18, 12> Fi;
     Eigen::Matrix<double, 12, 12> Qi;
+
+    // last wio orientation
+    Eigen::Quaterniond last_wio_orientation;
 
     // Correct
     double pose_noise = 1.2;
@@ -100,9 +101,9 @@ void ESKF::Init(const nav_msgs::OdometryConstPtr &odom_msg, State &x)
 
     Eigen::Vector3d odom_position;
     odom_position << odom_msg->pose.pose.position.x,
-                     odom_msg->pose.pose.position.y,
-                     odom_msg->pose.pose.position.z;
-    
+        odom_msg->pose.pose.position.y,
+        odom_msg->pose.pose.position.z;
+
     // Set the position of the state to the NED (North-East-Down) coordinates of the GPS data
     x.position = odom_position;
     // x.position = odom_msg->pose.pose.position;
@@ -142,8 +143,27 @@ void ESKF::Predict(const WIO_Data &wio_data, const double &dt, State &x)
     x.velocity = x.velocity + (R * (wio_data.acc - x.acc_bias) + x.gravity) * dt;
     // x.quaternion = kronecker_product(x.quaternion, euler_to_quatertion((imu_data.gyro - x.gyro_bias) * dt));
 
-    Eigen::Vector3d q_v = (wio_data.gyro - x.gyro_bias) * dt;
-    x.quaternion = x.quaternion * getQuaFromAA(q_v);
+    // Update quaternion if both current and last quaternions are valid
+    if (wio_data.orientation.norm() != 0 && last_wio_orientation.norm() != 0)
+    {
+        // Quaternion valid, update orientation according to delta quaternion
+        Eigen::Quaterniond q_q = last_wio_orientation.inverse() * wio_data.orientation;
+        x.quaternion = x.quaternion * q_q;
+
+        // Update orientation using gyroscope data as well if significant
+        Eigen::Vector3d q_v = (-x.gyro_bias) * dt;
+        x.quaternion = x.quaternion * getQuaFromAA(q_v);
+    }
+    else
+    {
+        Eigen::Vector3d q_v = (wio_data.gyro - x.gyro_bias) * dt;
+        x.quaternion = x.quaternion * getQuaFromAA(q_v);
+    }
+
+    if(wio_data.orientation.norm() != 0)
+    {
+        last_wio_orientation = wio_data.orientation;
+    }
 
     // calcurate Jacobian Fx
     Fx = calcurate_Jacobian_Fx(wio_data.acc, x.acc_bias, R, dt);
@@ -157,7 +177,6 @@ void ESKF::Predict(const WIO_Data &wio_data, const double &dt, State &x)
 
     // calcurate PEst
     x.PEst = Fx * x.PEst * Fx.transpose() + Fi * Qi * Fi.transpose();
-
 }
 
 Eigen::Matrix<double, 18, 18> ESKF::calcurate_Jacobian_Fx(Eigen::Vector3d acc, Eigen::Vector3d acc_bias, Eigen::Matrix3d R, const double dt)
