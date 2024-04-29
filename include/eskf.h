@@ -143,24 +143,37 @@ void ESKF::Predict(const WIO_Data &wio_data, const double &dt, State &x)
     x.velocity = x.velocity + (R * (wio_data.acc - x.acc_bias) + x.gravity) * dt;
     // x.quaternion = kronecker_product(x.quaternion, euler_to_quatertion((imu_data.gyro - x.gyro_bias) * dt));
 
+    
+    // Eigen::Vector3d q_v = (wio_data.gyro - x.gyro_bias) * dt;
+    // x.quaternion = x.quaternion * getQuaFromAA(q_v);
+
     // Update quaternion if both current and last quaternions are valid
     if (wio_data.orientation.norm() != 0 && last_wio_orientation.norm() != 0)
     {
         // Quaternion valid, update orientation according to delta quaternion
         Eigen::Quaterniond q_q = last_wio_orientation.inverse() * wio_data.orientation;
+        std::cout << "q_q: (x=" << q_q.x() << ", y=" << q_q.y() << ", z=" << q_q.z() << ", w=" << q_q.w() << ")" << std::endl;
         x.quaternion = x.quaternion * q_q;
 
         // Update orientation using gyroscope data as well if significant
-        Eigen::Vector3d q_v = (-x.gyro_bias) * dt;
-        x.quaternion = x.quaternion * getQuaFromAA(q_v);
+        const Eigen::Vector3d q_v = (-x.gyro_bias) * dt;
+        if (q_v.norm() >= 1e-12)
+        {
+            std::cout << "q_v[(-x.gyro_bias) * dt]: " << q_v << std::endl;
+            x.quaternion = x.quaternion * getQuaFromAA(q_v);
+        }
     }
     else
     {
-        Eigen::Vector3d q_v = (wio_data.gyro - x.gyro_bias) * dt;
-        x.quaternion = x.quaternion * getQuaFromAA(q_v);
+        const Eigen::Vector3d q_v = (wio_data.gyro - x.gyro_bias) * dt;
+        if (q_v.norm() >= 1e-12)
+        {
+            std::cout << "q_v[(wio_data.gyro - x.gyro_bias) * dt]: " << q_v << std::endl;
+            x.quaternion = x.quaternion * getQuaFromAA(q_v);
+        }
     }
 
-    if(wio_data.orientation.norm() != 0)
+    if (wio_data.orientation.norm() != 0)
     {
         last_wio_orientation = wio_data.orientation;
     }
