@@ -15,6 +15,7 @@
 
 #include "eskf.h"
 #include "state_variable.h"
+#include "vo_optimizer.h"
 
 // int yaw_flag = 0;
 
@@ -327,8 +328,10 @@ void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg,
 
     ROS_INFO("\033[1;33mdelta_yaw: %.2f degrees\037", delta_yaw * 180.0 / M_PI);
 
-    if (delta_yaw < 0.01 && delta_yaw > -0.01)
+    // Check if the change in yaw angle is within a small threshold
+    if (delta_yaw * 180.0 / M_PI < 0.1 && delta_yaw * 180.0 / M_PI > -0.1)
     {
+        // If the change in yaw angle is negligible, set it to zero
         delta_yaw = 0.0;
     }
 
@@ -399,16 +402,25 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
     wio_path_pub.publish(wio_path);
 
     // publish vo_path
+    // geometry_msgs::PoseStamped vo_point;
+    // vo_point.header.frame_id = "map";
+    // vo_point.header.stamp = ros::Time::now();
+    // vo_point.pose.position.x = vodom_msg->pose.pose.position.x;
+    // vo_point.pose.position.y = vodom_msg->pose.pose.position.y;
+    // vo_point.pose.position.z = 0.0;
+    // vo_point.pose.orientation.w = vodom_msg->pose.pose.orientation.w;
+    // vo_point.pose.orientation.x = vodom_msg->pose.pose.orientation.x;
+    // vo_point.pose.orientation.y = vodom_msg->pose.pose.orientation.y;
+    // vo_point.pose.orientation.z = vodom_msg->pose.pose.orientation.z;
+    // vo_path.poses.push_back(vo_point);
+    // vo_path_pub.publish(vo_path);
+
     geometry_msgs::PoseStamped vo_point;
     vo_point.header.frame_id = "map";
     vo_point.header.stamp = ros::Time::now();
-    vo_point.pose.position.x = vodom_msg->pose.pose.position.x;
-    vo_point.pose.position.y = vodom_msg->pose.pose.position.y;
+    vo_point.pose.position.x = vo.pose.pose.position.x;
+    vo_point.pose.position.y = vo.pose.pose.position.y;
     vo_point.pose.position.z = 0.0;
-    vo_point.pose.orientation.w = vodom_msg->pose.pose.orientation.w;
-    vo_point.pose.orientation.x = vodom_msg->pose.pose.orientation.x;
-    vo_point.pose.orientation.y = vodom_msg->pose.pose.orientation.y;
-    vo_point.pose.orientation.z = vodom_msg->pose.pose.orientation.z;
     vo_path.poses.push_back(vo_point);
     vo_path_pub.publish(vo_path);
 
@@ -453,6 +465,18 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
 void ROS_Interface::data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_msg, const WIO_Data &wio_data, nav_msgs::Odometry &vo)
 {
+    static VisualOdometryOptimizer optimizer(20);
+
+    Eigen::Vector3d current_vodom(vodom_msg->pose.pose.position.x,
+                                  vodom_msg->pose.pose.position.y,
+                                  0.0);
+
+    optimizer.addVisualOdometry(current_vodom);
+
+    optimizer.optimize(wio_data, vo);
+
+    /*
+
     // previous visual odometry
     static Eigen::Vector3d prev_vodom;
 
@@ -471,6 +495,8 @@ void ROS_Interface::data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_m
     vo.pose.pose.position.x = wio_data.position[0] + incremental_position[0];
     vo.pose.pose.position.y = wio_data.position[1] + incremental_position[1];
     vo.pose.pose.position.z = 0.0;
+
+    */
 }
 
 double ROS_Interface::calculateImuOrientation(const Eigen::Quaterniond &imu_orientation)

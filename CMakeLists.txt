@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(Eigen3 REQUIRED)
+find_package(Ceres REQUIRED)  # 添加这一行来查找Ceres Solver
 
 ###################################
 ## catkin specific configuration ##
@@ -21,7 +22,7 @@ find_package(Eigen3 REQUIRED)
 catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS cmake_modules roscpp sensor_msgs
-  DEPENDS EIGEN3 
+  DEPENDS EIGEN3 CERES  # 将CERES添加到依赖项中
 )
 
 ###########
@@ -32,11 +33,12 @@ include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${Eigen3_INCLUDE_DIRS}
+  ${CERES_INCLUDE_DIRS}  # 添加Ceres Solver的包含路径
 )
-
 
 # eskf_localization node
 add_executable(eskf_localization src/eskf_localization.cpp)
-target_link_libraries(eskf_localization ${catkin_LIBRARIES})
-
-
+target_link_libraries(eskf_localization 
+  ${catkin_LIBRARIES}
+  ${CERES_LIBRARIES}  # 链接Ceres Solver库
+)
