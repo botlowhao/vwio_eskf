@@ -234,10 +234,10 @@ void ROS_Interface::odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
     double current_pitch_wo = euler_angles[1];
     double current_yaw_wo = euler_angles[2];
 
-    ROS_INFO("\033[1;35mWO Orientation: Roll=%.2f degrees\036, Pitch=%.2f degrees\036, Yaw=%.2f degrees\036",
-             current_roll_wo * 180.0 / M_PI,
-             current_pitch_wo * 180.0 / M_PI,
-             current_yaw_wo * 180.0 / M_PI);
+    // ROS_INFO("\033[1;35mWO Orientation: Roll=%.2f degrees\036, Pitch=%.2f degrees\036, Yaw=%.2f degrees\036",
+    //          current_roll_wo * 180.0 / M_PI,
+    //          current_pitch_wo * 180.0 / M_PI,
+    //          current_yaw_wo * 180.0 / M_PI);
 
     wo_msg = odom_msg; // store and update the information of odom_msg
 
@@ -326,7 +326,7 @@ void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg,
     // Calculate the yaw angle change
     delta_yaw = wio_data.angular_vel[2] * dt;
 
-    ROS_INFO("\033[1;33mdelta_yaw: %.2f degrees\037", delta_yaw * 180.0 / M_PI);
+    // ROS_INFO("\033[1;33mdelta_yaw: %.2f degrees\037", delta_yaw * 180.0 / M_PI);
 
     // Check if the change in yaw angle is within a small threshold
     if (delta_yaw * 180.0 / M_PI < 0.1 && delta_yaw * 180.0 / M_PI > -0.1)
@@ -349,7 +349,7 @@ void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg,
         wio_data.yaw_angle += 2 * M_PI;
     }
 
-    ROS_INFO("\033[1;31mwio_data.yaw_angle: %.2f degrees\033[0m", wio_data.yaw_angle * 180.0 / M_PI);
+    ROS_INFO("\033[1;31mWIO_Data.yaw_angle: %.2f degrees\033[0m", wio_data.yaw_angle * 180.0 / M_PI);
 
     wio_data.position[0] += wio_data.linear_vel[0] * cos(wio_data.yaw_angle) * dt;
     wio_data.position[1] += wio_data.linear_vel[0] * sin(wio_data.yaw_angle) * dt;
@@ -465,7 +465,9 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
 void ROS_Interface::data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_msg, const WIO_Data &wio_data, nav_msgs::Odometry &vo)
 {
-    static VisualOdometryOptimizer optimizer(20);
+    /*
+    
+    static VisualOdometryOptimizer optimizer(5);
 
     Eigen::Vector3d current_vodom(vodom_msg->pose.pose.position.x,
                                   vodom_msg->pose.pose.position.y,
@@ -474,8 +476,8 @@ void ROS_Interface::data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_m
     optimizer.addVisualOdometry(current_vodom);
 
     optimizer.optimize(wio_data, vo);
-
-    /*
+       
+    */
 
     // previous visual odometry
     static Eigen::Vector3d prev_vodom;
@@ -496,7 +498,6 @@ void ROS_Interface::data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_m
     vo.pose.pose.position.y = wio_data.position[1] + incremental_position[1];
     vo.pose.pose.position.z = 0.0;
 
-    */
 }
 
 double ROS_Interface::calculateImuOrientation(const Eigen::Quaterniond &imu_orientation)

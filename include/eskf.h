@@ -143,7 +143,6 @@ void ESKF::Predict(const WIO_Data &wio_data, const double &dt, State &x)
     x.velocity = x.velocity + (R * (wio_data.acc - x.acc_bias) + x.gravity) * dt;
     // x.quaternion = kronecker_product(x.quaternion, euler_to_quatertion((imu_data.gyro - x.gyro_bias) * dt));
 
-    
     // Eigen::Vector3d q_v = (wio_data.gyro - x.gyro_bias) * dt;
     // x.quaternion = x.quaternion * getQuaFromAA(q_v);
 
@@ -152,14 +151,14 @@ void ESKF::Predict(const WIO_Data &wio_data, const double &dt, State &x)
     {
         // Quaternion valid, update orientation according to delta quaternion
         Eigen::Quaterniond q_q = last_wio_orientation.inverse() * wio_data.orientation;
-        std::cout << "q_q: (x=" << q_q.x() << ", y=" << q_q.y() << ", z=" << q_q.z() << ", w=" << q_q.w() << ")" << std::endl;
+        // std::cout << "q_q: (x=" << q_q.x() << ", y=" << q_q.y() << ", z=" << q_q.z() << ", w=" << q_q.w() << ")" << std::endl;
         x.quaternion = x.quaternion * q_q;
 
         // Update orientation using gyroscope data as well if significant
         const Eigen::Vector3d q_v = (-x.gyro_bias) * dt;
         if (q_v.norm() >= 1e-12)
         {
-            std::cout << "q_v[(-x.gyro_bias) * dt]: " << q_v << std::endl;
+            // std::cout << "q_v[(-x.gyro_bias) * dt]: " << q_v << std::endl;
             x.quaternion = x.quaternion * getQuaFromAA(q_v);
         }
     }
@@ -168,7 +167,7 @@ void ESKF::Predict(const WIO_Data &wio_data, const double &dt, State &x)
         const Eigen::Vector3d q_v = (wio_data.gyro - x.gyro_bias) * dt;
         if (q_v.norm() >= 1e-12)
         {
-            std::cout << "q_v[(wio_data.gyro - x.gyro_bias) * dt]: " << q_v << std::endl;
+            // std::cout << "q_v[(wio_data.gyro - x.gyro_bias) * dt]: " << q_v << std::endl;
             x.quaternion = x.quaternion * getQuaFromAA(q_v);
         }
     }
@@ -255,20 +254,56 @@ Eigen::Matrix<double, 12, 12> ESKF::calcurate_Jacobian_Qi(const double dt)
  *
  * P_k = (I - KH)*P_{k-1}
  */
-void ESKF::Correct(const nav_msgs::Odometry &vo, State &x)
+ void ESKF::Correct(const nav_msgs::Odometry &vo, State &x)
 {
     Eigen::Vector3d Y(vo.pose.pose.position.x,
                       vo.pose.pose.position.y,
                       vo.pose.pose.position.z);
-
+    
     Eigen::Vector3d X(x.position[0],
                       x.position[1],
                       x.position[2]);
+
+    /*
+    
+    // 限制协方差矩阵P的值
+    const double max_covariance_value = 10;         // 设置最大的协方差值
+    x.PEst = x.PEst.cwiseMin(max_covariance_value); // 将协方差矩阵中的每个元素限制在最大值内
+
+    // 控制噪声矩阵V的值     
+    const double min_noise_value = 0.8; // 设置最小的噪声值
+    Eigen::Matrix3d V = pose_noise * Eigen::Matrix3d::Identity();
+    V = V.cwiseMax(min_noise_value); // 将噪声矩阵中的每个元素限制在最小值以上
+
+    */
 
     Eigen::Matrix3d V = pose_noise * Eigen::Matrix3d::Identity();
 
     // calcurate Jacobian H
     H = calcurate_Jacobian_H(x);
+
+    
+    /*
+    // 计算卡尔曼增益矩阵 K
+    Eigen::MatrixXd K = Eigen::MatrixXd::Zero(x.PEst.rows(), Y.size()); // 初始化 K 矩阵
+    if (!std::isnan(x.PEst.sum()) && !std::isnan(H.sum()) && !std::isnan(V.sum()))
+    {
+        // 如果输入的矩阵没有 NaN 值，才进行计算
+        K = x.PEst * H.transpose() * (H * x.PEst * H.transpose() + V).inverse();
+    }
+    else
+    {
+        ROS_WARN("NaN detected in covariance or Jacobian or noise matrix. Skipping correction step.");
+        return;
+    }
+
+    // 检查计算结果是否有 NaN 值
+    if (std::isnan(K.sum()))
+    {
+        ROS_WARN("NaN detected in Kalman Gain. Skipping correction step.");
+        return;
+    }
+    */
 
     // calcurate Klaman Gein
     Eigen::MatrixXd K = x.PEst * H.transpose() * (H * x.PEst * H.transpose() + V).inverse();
@@ -277,7 +312,15 @@ void ESKF::Correct(const nav_msgs::Odometry &vo, State &x)
     x.error = K * (Y - X);
 
     // calcurate PEst
-    x.PEst = (Eigen::Matrix<double, 18, 18>::Identity() - K * H) * x.PEst;
+    x.PEst = (Eigen::Matrix<double, 18, 18>::Identity() - K * H) * x.PEst;                                              
+
+    // Convert K matrix to string
+    std::stringstream ss;
+    ss << "Jacobian Gain K:\n"
+       << K;
+
+    // Output K matrix using ROS_INFO
+    ROS_INFO("%s", ss.str().c_str());
 }
 
 Eigen::Matrix<double, 3, 18> ESKF::calcurate_Jacobian_H(State &x)
@@ -319,7 +362,7 @@ void ESKF::State_update(State &x)
     x.quaternion = x.quaternion * getQuaFromAA(error_ori);
     x.acc_bias = x.acc_bias + error_acc_bias;
     x.gyro_bias = x.gyro_bias + error_gyr_bias;
-    // x.gravity = x.gravity + error_gra;
+    x.gravity = x.gravity + error_gra;
 }
 
 void ESKF::Error_State_Reset(State &x)
