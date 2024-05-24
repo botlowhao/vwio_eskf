@@ -56,7 +56,7 @@ $$
 
 ### 2.1 ESKF Init Step
 
-1) Set ``intial position value`` from WO(Wheel Odometry) according to the formula (1).
+1) Set **intial position value** from WO(Wheel Odometry) according to the formula (1).
 
 $$
 \begin{aligned}
@@ -65,37 +65,37 @@ $$
 $$
 
 
-2) Initialize the ``State Estimate Covariance`` matrix and set the noise for the position/velocity/posture estimation of the robot's initial state according to the formula (2).
+2) Initialize the **State Estimate Covariance** matrix and set the noise for the position/velocity/posture estimation of the robot's initial state according to the formula (2).
 
 
 $$
-\mathbf{P}_t = 
+\mathbf{P}_t^{init} = 
 \begin{pmatrix}
 \sigma_{\text{p}}^2 \mathbf{I}_{3 \times 3} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} \\
 \mathbf{0} & \sigma_{\text{v}}^2 \mathbf{I}_{3 \times 3} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} \\
 \mathbf{0} & \mathbf{0} & \sigma_{\theta}^2 \mathbf{I}_{3 \times 3} & \mathbf{0} & \mathbf{0} & \mathbf{0} \\
 \mathbf{0} & \mathbf{0} & \mathbf{0} & \sigma_{\text{a}}^2 \mathbf{I}_{3 \times 3} & \mathbf{0} & \mathbf{0} \\
-\mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \sigma_{\omega}^2 \mathbf{I}_{3 \times 3} & \mathbf{0} \\
+\mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \sigma_{\alpha}^2 \mathbf{I}_{3 \times 3} & \mathbf{0} \\
 \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \sigma_{g}^2 \mathbf{I}_{3 \times 3}
 \end{pmatrix}
 \in \mathbb{R}^{18 \times 18}
 \tag{2}
 $$
 
-&emsp;&emsp;Where $ \sigma_{\text{p}}^2 = 1.2 $, $ \sigma_{\text{v}}^2 = 10.0 $ and $ \sigma_{\theta}^2 = 1.0 $ while $ \sigma_{a}^2 = \sigma_{\omega}^2 = \sigma_{g}^2 = 0 $ .
+&emsp;&emsp;Where $ \sigma_{\text{p}}^2 = 1.2 $, $ \sigma_{\text{v}}^2 = 10.0 $ and $ \sigma_{\theta}^2 = 1.0 $ while $ \sigma_{a}^2 = \sigma_{\alpha}^2 = \sigma_{g}^2 = 0 $ .
 
 
 ### 2.2 ESKF Predict Step
 
 #### 2.2.1 Construct Predict Model Of System
 
-1) Set the ESKF truth state to the formula (3)
+1) Set the **ESKF truth state** to the formula (3)
 
 $$
-\mathbf{x}_t = [\mathbf{p}_t, \mathbf{v}_t, \mathbf{R}_t, \mathbf{b}_{at}, \mathbf{b}_{\omega t}, \mathbf{g}_t]^\mathrm{T}\tag{3}
+\mathbf{x}_t = [\mathbf{p}_t, \mathbf{v}_t, \mathbf{R}_t, \mathbf{b}_{at}, \mathbf{b}_{\alpha t}, \mathbf{g}_t]^\mathrm{T}\tag{3}
 $$
 
-2) Set the ESKF error state to the formula (4)
+2) Set the **ESKF error state** to the formula (4)
 
 $$
 \delta \mathbf{x} =
@@ -104,7 +104,7 @@ $$
 \delta \mathbf{v} \\ 
 \delta \boldsymbol{\theta} \\
 \delta \mathbf{b}_a \\ 
-\delta \mathbf{b}_{\omega} \\
+\delta \mathbf{b}_{\alpha} \\
 \delta \mathbf{g}
 \end{bmatrix}
 \in \mathbb{R}^{18 \times 1}
@@ -117,16 +117,16 @@ $$
 \begin{cases}
 \mathbf{p}(t+\Delta t) = \mathbf{p}(t) + \mathbf{v} \Delta t + \frac{1}{2} \left(\mathbf{R}(\tilde{\mathbf{a}}-\mathbf{b}_a) \right) \Delta t^2 + \frac{1}{2} \mathbf{g} \Delta t^2 \\
 \mathbf{v}(t+\Delta t) = \mathbf{v}(t) + \mathbf{R} (\tilde{\mathbf{a}} - \mathbf{b}_a) \Delta t + \mathbf{g} \Delta t \\
-\mathbf{R}(t+\Delta t) = \mathbf{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\omega}}-\mathbf{b}_{\omega}) \Delta t \right) \\
+\mathbf{R}(t+\Delta t) = \mathbf{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\alpha}}-\mathbf{b}_{\alpha}) \Delta t \right) \\
 \mathbf{b}_a(t+\Delta t) = \mathbf{b}_a(t) \\
-\mathbf{b}_{\omega}(t+\Delta t) = \mathbf{b}_{\omega}(t) \\
+\mathbf{b}_{\alpha}(t+\Delta t) = \mathbf{b}_{\alpha}(t) \\
 \mathbf{g}(t+\Delta t) = \mathbf{g}(t)
 \end{cases}
 \end{aligned}
 \tag{5}
 $$
 
-&emsp;&emsp;where $ \mathbf{u}_{m} = [\tilde{\mathbf{a}}, \mathbf{b}_a,\tilde{\boldsymbol{\omega}},\mathbf{b}_{\omega}]^\mathrm{T} $ from the ``information of the IMU's linear acceleration and angular acceleration in the WIO odometer and their deviation values``.
+&emsp;&emsp;where $\mathbf{u}_{m} = [\tilde{\mathbf{a}}, \mathbf{b}_a,\tilde{\boldsymbol{\alpha}},\mathbf{b}_{\alpha}]^\mathrm{T}$ **from the information of the IMU's linear acceleration and angular acceleration in the WIO odometer and their deviation values**.
 
 
 
@@ -148,31 +148,31 @@ $$
 $$
 
 
-5) $ f(.) $ is the nonlinear state function of the system and $ \mathbf{Q} $ ``is the Variance of Process Noise matrix ``. The motion equations of Error status $\delta \mathbf{x}$ in Discrete Time to formula (7).
+5) $ f(.) $ is the nonlinear state function of the system and $\mathbf{Q}$ is the **Variance of Process Noise matrix**. The motion equations of Error status $\delta \mathbf{x}$ in Discrete Time to formula (7).
 
 $$
-\delta \mathbf{x}_{(t+\Delta t)} = f(\delta \mathbf{x}) + \mathbf{w}, \mathbf{w} \sim \mathcal{N}(0, \mathbf{Q})\tag{7}
+\delta \mathbf{x} = f(\delta \mathbf{x}) + \mathbf{w}, \mathbf{w} \sim \mathcal{N}(0, \mathbf{Q})\tag{7}
 $$
 
 $$
 \mathbf{Q} = 
 \begin{pmatrix}
 {\Delta t}^2 \sigma_{a}^2 \mathbf{I}_{3 \times 3} & \mathbf{0} & \mathbf{0} & \mathbf{0} \\
-\mathbf{0} & {\Delta t}^2 \sigma_{\omega}^2 \mathbf{I}_{3 \times 3} & \mathbf{0} & \mathbf{0} \\
+\mathbf{0} & {\Delta t}^2 \sigma_{\alpha}^2 \mathbf{I}_{3 \times 3} & \mathbf{0} & \mathbf{0} \\
 \mathbf{0} & \mathbf{0} & \Delta t \sigma_{ba}^2 \mathbf{I}_{3 \times 3} & \mathbf{0} \\
-\mathbf{0} & \mathbf{0} & \mathbf{0} & \Delta t \sigma_{b \omega}^2 \mathbf{I}_{3 \times 3}
+\mathbf{0} & \mathbf{0} & \mathbf{0} & \Delta t \sigma_{b \alpha}^2 \mathbf{I}_{3 \times 3}
 \end{pmatrix}
 \in \mathbb{R}^{12 \times 12}
 \tag{8}
 $$
 
-&emsp;&emsp;Where $ \sigma_{a}^2 = \sigma_{\omega}^2 = \sigma_{ba}^2 = \sigma_{b \omega}^2 = 5 \times 10^{-4} $.
+&emsp;&emsp;Where $\sigma_{a}^2 = \sigma_{\alpha}^2 = \sigma_{ba}^2 = \sigma_{b \alpha}^2 = 5 \times 10^{-4}$.
 
 
 6) Linearization of Equations of Motion in Discrete Time to formula (9)
 
 $$
-\delta \mathbf{x}_{(t+\Delta t)} = \mathbf{F_x} \delta \mathbf{x} + \mathbf{F_i}\mathbf{w}\tag{9}
+\delta \mathbf{x} = \mathbf{F_x} \delta \mathbf{x} + \mathbf{F_i}\mathbf{w}\tag{9}
 $$ 
 
 &emsp;&emsp;where $ F_x $ and $ F_i $ equal to formula (10), formula(11) respectively.
@@ -182,7 +182,7 @@ $$
 \begin{bmatrix}
 \mathbf{I} & \mathbf{I} \Delta t & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} \\
 \mathbf{0} & \mathbf{I} & - \mathbf{R}(\tilde{\mathbf{a}} - \mathbf{b}_a)^\wedge \Delta t & -\mathbf{R} \Delta t & \mathbf{0} & \mathbf{I} \Delta t \\
-\mathbf{0} & \mathbf{0} & \mathrm{Exp}\left( -(\tilde{\boldsymbol{\omega}} - \mathbf{b}_{\omega}) \Delta t \right) & \mathbf{0} & -\mathbf{I} \Delta t & \mathbf{0} \\
+\mathbf{0} & \mathbf{0} & \mathrm{Exp}\left( -(\tilde{\boldsymbol{\alpha}} - \mathbf{b}_{\alpha}) \Delta t \right) & \mathbf{0} & -\mathbf{I} \Delta t & \mathbf{0} \\
 \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{I} & \mathbf{0} & \mathbf{0} \\
 \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{I} & \mathbf{0} \\
 \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{I}
@@ -211,7 +211,7 @@ $$
 
 $$
 \begin{aligned}
-\delta \mathbf{\hat x}_{(t+\Delta t)}^- &= \mathbf{F_x} \delta \mathbf{x} 
+\delta \mathbf{\hat x}^- &= \mathbf{F_x} \delta \mathbf{x} 
 \end{aligned}
 \tag{12}
 $$
@@ -224,7 +224,7 @@ $$
 
 $$
 \begin{aligned}
-\mathbf{P}_{(t+\Delta t)}^- &= \mathbf{F_x} \mathbf{P} \mathbf{F_x}^\mathrm{T} + \mathbf{F_i}\mathbf{Q} \mathbf{F_i}^{\mathrm{T}}
+\mathbf{P}_t^- &= \mathbf{F_x} \mathbf{P}_t \mathbf{F_x}^\mathrm{T} + \mathbf{F_i}\mathbf{Q} \mathbf{F_i}^{\mathrm{T}}
 \end{aligned}
 \tag{13}
 $$
@@ -237,8 +237,7 @@ $$
 
 #### 2.3.1 Construct The Observe Model Of The System
 
-1) Assume that the ``visual sensor (Visual Odometry)`` can observe state variables, and its nonlinear observation function is $ h(.) $
-, can be written as the formula (14), where $ \mathbf{z} =  [\mathbf{p}_{xt}^{vo}, \mathbf{p}_{yt}^{vo}, \mathbf{p}_{zt}^{vo}]^\mathrm{T} $ is the observation data from the visual odometry, $ v $ is the observation noise, $ V $ is the ``Variance of Collection Noise matrix``.
+1) Assume that the **visual sensor (Visual Odometry)** can observe state variables, and its nonlinear observation function is $h(.)$, can be written as the formula (14), where $\mathbf{z} =  [\mathbf{p}_{xt}^{vo}, \mathbf{p}_{yt}^{vo}, \mathbf{p}_{zt}^{vo}]^\mathrm{T}$ is the **observation data** from the visual odometry, $v$ is the observation noise, $V$ is the **Variance of Collection Noise matrix**.
 
 
 $$
@@ -260,9 +259,9 @@ $$
 
 
 
-&emsp;&emsp;In the traditional Extended Kalman Filter ``(EKF)``, the observation equation is linearized, ``the Jacobian matrix of the observation equation with respect to the state variable is found``, and then the Kalman filter is updated.
+&emsp;&emsp;In the traditional **Extended Kalman Filter (EKF)**, the observation equation is linearized, **the Jacobian matrix of the observation equation with respect to the state variable is found**, and then the Kalman filter is updated.
 
-&emsp;&emsp;In the Error State Kalman Filter ``(ESKF)``, an estimate of the nominal state $\mathbf{x}$ and an estimate of the error state $\delta \mathbf{x}$ are available. To update the error state, ``the Jacobian matrix $H$ of the observation equation with respect to the error state is calculated.``
+&emsp;&emsp;In the **Error State Kalman Filter (ESKF)**, an estimate of the nominal state $\mathbf{x}$ and an estimate of the error state $\delta \mathbf{x}$ are available. To update the error state, **the Jacobian matrix** $H$ **of the observation equation with respect to the error state is calculated**.
 
 
 $$
@@ -274,7 +273,7 @@ $$
 #### 2.3.2 Calcurate Klaman Gein
 
 $$
-\mathbf{K} = \frac{\mathbf{P}_{(t+\Delta t)}^- \cdot \mathbf{H}^T}{\mathbf{H} \cdot \mathbf{P}_{(t+\Delta t)}^- \cdot \mathbf{H}^T + \mathbf{V}}
+\mathbf{K} = \frac{\mathbf{P}_t^- \cdot \mathbf{H}^T}{\mathbf{H} \cdot \mathbf{P}_t^- \cdot \mathbf{H}^T + \mathbf{V}}
 \tag{17}
 $$
 
@@ -282,7 +281,7 @@ $$
 
 $$
 \begin{aligned}
-\delta \mathbf{\hat x}_{\mathrm{(t+\Delta t)}} &= \mathbf{K} (\mathbf{z} - \mathbf{H} \cdot \delta  \mathbf {\hat x}_{\mathrm{(t+\Delta t)}}^- ) 
+\delta \mathbf{\hat x} &= \mathbf{K} (\mathbf{z} - \mathbf{H} \cdot \delta  \mathbf {\hat x}^- ) 
 \end{aligned}
 \tag{18}
 $$
@@ -291,7 +290,7 @@ $$
 
 $$
 \begin{aligned}
-\mathbf{P}_{\mathrm{(t+\Delta t)}} &= (\mathbf{I} - \mathbf{K} \mathbf{H}) \mathbf{P}_{\mathrm{(t+\Delta t)}}^-
+\mathbf{P}_t &= (\mathbf{I} - \mathbf{K} \mathbf{H}) \mathbf{P}_t^-
 \end{aligned}
 \tag{19}
 $$
@@ -299,8 +298,10 @@ $$
 
 ## 2.4 ESKF State Update
 
+&emsp;&emsp;The true state $\mathbf{x}_t$ equal to the **Combination Operations** of nomal state $\mathbf{x}$ and error state $\delta{\hat x}_t$.
+
 $$
-\mathbf{x}_{(t+\Delta t)} = \mathbf{x}_t \oplus \delta \mathbf{x}_{(t+\Delta t)}
+\mathbf{x}_t = \mathbf{x} \oplus \delta \mathbf{\hat x}
 \tag{20}
 $$
 
@@ -309,12 +310,12 @@ $$
 $$
 \begin{aligned}
 \begin{cases}
-\mathbf{p}_{t+1} = \mathbf{p}_t + \delta \mathbf{p}_t \\
-\mathbf{v}_{t+1} = \mathbf{v}_t + \delta \mathbf{v}_t \\
-\mathbf{R}_{t+1} = \mathbf{R}_t \mathrm{Exp}(\delta \boldsymbol{\theta}_t) \\
-\mathbf{b}_{a, t+1} = \mathbf{b}_{a,t} + \delta \mathbf{b}_{a,t} \\
-\mathbf{b}_{{\omega}, t+1} = \mathbf{b}_{{\omega},t} + \delta \mathbf{b}_{{\omega},t} \\
-\mathbf{g}_{t+1} = \mathbf{g}_{t} + \delta \mathbf{g}_{t}
+\mathbf{p}_{t} = \mathbf{p} + \delta \mathbf{p} \\
+\mathbf{v}_{t} = \mathbf{v} + \delta \mathbf{v} \\
+\mathbf{R}_{t} = \mathbf{R} \mathrm{Exp}(\delta \boldsymbol{\theta}) \\
+\mathbf{b}_{a, t} = \mathbf{b}_{a} + \delta \mathbf{b}_{a} \\
+\mathbf{b}_{{\alpha}, t} = \mathbf{b}_{{\alpha}} + \delta \mathbf{b}_{{\alpha}} \\
+\mathbf{g}_{t} = \mathbf{g} + \delta \mathbf{g}
 \end{cases}
 \end{aligned}
 \tag{21}
@@ -323,18 +324,19 @@ $$
 
 ## 2.5 ESKF Error State Reset
 
+&emsp;&emsp;The error state $\delta x$ will be **RESET to ZERO**  after ESKF State Update according to the formula (22) below.
+
 $$
 \begin{aligned}
-\delta \mathbf{x}_{(t+\Delta t)} = 
+\delta \mathbf{\hat x} = 
 \begin{bmatrix}
-\delta \mathbf{p}_{(t+\Delta t)} \\
-\delta \mathbf{v}_{(t+\Delta t)} \\
-\mathrm \delta \boldsymbol{\theta}_{(t+\Delta t)} \\
-\mathbf{b}_{g,(t+1)} \\
-\delta \mathbf{b}_{a,(t+1)} \\
-\delta \mathbf{g}_{(t+1)}
-\end{bmatrix}
-=
+\delta \mathbf{p} \\
+\delta \mathbf{v} \\
+\mathrm \delta \boldsymbol{\theta} \\
+\delta \mathbf{b}_{a} \\
+\delta \mathbf{b}_{\alpha} \\
+\delta \mathbf{g}
+\end{bmatrix} =
 \begin{bmatrix}
 0 \\
 0 \\
@@ -346,6 +348,7 @@ $$
 \end{aligned}
 \tag{22}
 $$
+
 
 
 
