@@ -467,41 +467,20 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
 void ROS_Interface::data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_msg, const WIO_Data &wio_data, nav_msgs::Odometry &vo)
 {
-    /*
-
-    static VisualOdometryOptimizer optimizer(5);
-
-    Eigen::Vector3d current_vodom(vodom_msg->pose.pose.position.x,
-                                  vodom_msg->pose.pose.position.y,
-                                  0.0);
-
-    optimizer.addVisualOdometry(current_vodom);
-
-    optimizer.optimize(wio_data, vo);
-
-    */
-
-    // set the threshold
-    const double min_threshold = 1.0;
-    const double max_threshold = 60.0;
+    // Set the threshold
+    const double min_threshold = 0.5;
+    const double max_threshold = 65.0;
 
     // Define a flag to check if initialization is done
     static bool is_initialized = false;
 
-    // previous visual odometry
+    // Previous visual odometry
     static Eigen::Vector3d prev_vodom;
 
-    // previous wio odometry
-    static Eigen::Vector3d prev_wio;
-
-    // current visual odometry
+    // Current visual odometry
     Eigen::Vector3d current_vodom(vodom_msg->pose.pose.position.x,
                                   vodom_msg->pose.pose.position.y,
                                   0.0);
-
-    Eigen::Vector3d current_wio(wio_data.position[0],
-                                wio_data.position[1],
-                                0.0);
 
     // If not initialized, set the initial values
     if (!is_initialized)
@@ -516,56 +495,23 @@ void ROS_Interface::data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_m
         // Reset prev_vodom to current_vodom to avoid large jumps when WIO data starts updating
         prev_vodom = current_vodom;
         // Use WIO data directly
-        vo.pose.pose.position.x = wio_data.position[0];
-        vo.pose.pose.position.y = wio_data.position[1];
+        vo.pose.pose.position.x = 0.0;
+        vo.pose.pose.position.y = 0.0;
         vo.pose.pose.position.z = 0.0;
         return;
     }
 
     // Calculate incremental position
     Eigen::Vector3d incremental_vo = current_vodom - prev_vodom;
-    Eigen::Vector3d incremental_wio = current_wio - prev_wio;
 
-    // Check if the file already exists and has content
-    std::ifstream infile("/home/wheeltec/catkin_ws/src/vwio_eskf/include/incremental_vo.csv");
-    bool file_exists = infile.good();
-    infile.close();
-
-    // Print and save incremental_vo data to a CSV file, including the norm
-    std::ofstream csv_file;
-    csv_file.open("/home/wheeltec/catkin_ws/src/vwio_eskf/include/incremental_vo.csv", std::ios::app); // Open the file in append mode
-    if (csv_file.is_open())
-    {
-        if (!file_exists)
-        {
-            // Write the header if the file is being created for the first time
-            csv_file << "incremental_vo_x,incremental_vo_y,incremental_vo_z,incremental_vo_norm\n";
-        }
-
-        std::cout << "==========================================" << std::endl;
-        std::cout << "Writing to CSV file...\n"; // Print to console
-        std::cout << "==========================================" << std::endl;
-        csv_file << incremental_vo[0] << "," << incremental_vo[1] << "," << incremental_vo[2] << "," << incremental_vo.norm() << "\n";
-        csv_file.close();
-        std::cout << "==========================================" << std::endl;
-        std::cout << "Write complete.\n"; // Print to console
-        std::cout << "==========================================" << std::endl;
-    }
-    else
-    {
-        std::cerr << "Unable to open file for writing incremental_vo data.\n";
-    }
+    // Update the previous visual odometry only if the change is within the threshold
+    prev_vodom = current_vodom;
 
     // Check if the incremental position exceeds the threshold
-    if (incremental_vo.norm() > min_threshold && incremental_vo.norm() < max_threshold)
+    if (incremental_vo.norm() >= min_threshold && incremental_vo.norm() <= max_threshold)
     {
         // If the change is too large, ignore this visual odometry data
         incremental_vo = Eigen::Vector3d::Zero();
-    }
-    else
-    {
-        // Update the previous visual odometry only if the change is within the threshold
-        prev_vodom = current_vodom;
     }
 
     // Update visual odometry data
