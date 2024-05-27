@@ -15,7 +15,8 @@
 
 #include "eskf.h"
 #include "state_variable.h"
-#include "vo_optimizer.h"
+
+#include "filter.h"
 
 #include <fstream> // Include this for file handling
 
@@ -78,6 +79,9 @@ private:
     double prev_yaw;
     double delta_yaw;
 
+    // Sensor Data source for SlidingWindowAvg
+    static const int VO_DATA_INDEX = 0;
+
 private:
     /**
      * @brief calculate the RPY angle by Quternion(w,x,y,z)
@@ -135,6 +139,13 @@ public:
      * @param vo Inter-frame visual Odometry
      */
     void data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_msg, const WIO_Data &wio_data, nav_msgs::Odometry &vo);
+
+    /**
+     * @brief filter the visual odometry data by SlidingWindowAvg
+     *
+     * @param vo visual odometry data
+     */
+    void filter_vo_data(nav_msgs::Odometry &vo);
 };
 
 /***********************************************************************
@@ -366,6 +377,9 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
     // Inter-frame Visual Odometry
     data_conversion_vo(vodom_msg, wio_data, vo);
 
+    // filter the visual odometry data by SlidingWindowAvg
+    filter_vo_data(vo);
+
     // ESKF Correction
     eskf.Correct(vo, x);
 
@@ -550,6 +564,23 @@ double ROS_Interface::calculateImuOrientation(const Eigen::Quaterniond &imu_orie
              roll_imu * 180.0 / M_PI, pitch_imu * 180.0 / M_PI, yaw_imu * 180.0 / M_PI);
 
     return yaw_imu;
+}
+
+void ROS_Interface::filter_vo_data(nav_msgs::Odometry &vo)
+{
+    const int max_sensor_num = 9;
+    const int max_data_num = 9;
+    const int window_data_num = 7;
+
+    static Filter filter(max_sensor_num,max_data_num,window_data_num);
+
+    Eigen::Vector3d vo_position(vo.pose.pose.position.x, vo.pose.pose.position.y, vo.pose.pose.position.z);
+
+    Eigen::Vector3d filtered_vo_position = filter.slidingWindowAvgFilter(VO_DATA_INDEX, vo_position);
+
+    vo.pose.pose.position.x = filtered_vo_position.x();
+    vo.pose.pose.position.y = filtered_vo_position.y();
+    vo.pose.pose.position.z = filtered_vo_position.z();
 }
 
 #endif // ROS_INTERFACE
