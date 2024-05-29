@@ -6,13 +6,25 @@
 #include <Eigen/Geometry>
 #include <math.h>
 
-// struct IMU_Data
-// {
-//     double timestamp;
+struct WO_Data
+{
+    double timestamp;
 
-//     Eigen::Vector3d acc;
-//     Eigen::Vector3d gyro;
-// };
+    Eigen::Vector3d position;
+    Eigen::Quaterniond orientation;
+    Eigen::Vector3d linear_vel;
+    Eigen::Vector3d angular_vel;
+    double yaw_angle;
+
+    WO_Data() : timestamp(0.0),
+                position(Eigen::Vector3d(0.0, 0.0, 0.0)),
+                orientation(Eigen::Quaterniond::Identity()),
+                linear_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
+                angular_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
+                yaw_angle(0.0)
+    {
+    }
+};
 
 // struct GPS_Data
 // {
@@ -34,20 +46,17 @@ struct WIO_Data
     Eigen::Vector3d gyro;
     double yaw_angle;
 
-    WIO_Data() : 
-        timestamp(0.0),
-        position(Eigen::Vector3d(0.0, 0.0, 0.0)),
-        orientation(Eigen::Quaterniond::Identity()),
-        linear_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
-        angular_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
-        acc(Eigen::Vector3d(0.0, 0.0, 0.0)),
-        gyro(Eigen::Vector3d(0.0, 0.0, 0.0)),
-        yaw_angle(0.0)
-    {}
-
-
+    WIO_Data() : timestamp(0.0),
+                 position(Eigen::Vector3d(0.0, 0.0, 0.0)),
+                 orientation(Eigen::Quaterniond::Identity()),
+                 linear_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
+                 angular_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
+                 acc(Eigen::Vector3d(0.0, 0.0, 0.0)),
+                 gyro(Eigen::Vector3d(0.0, 0.0, 0.0)),
+                 yaw_angle(0.0)
+    {
+    }
 };
-
 
 struct State
 {
@@ -72,6 +81,5 @@ struct State
 // 	double cos_lat;
 // 	bool init_done;
 // };
-
 
 #endif // STATE_VARIABLE
