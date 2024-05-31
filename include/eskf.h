@@ -27,7 +27,7 @@ private:
     Eigen::Quaterniond last_wio_orientation;
 
     // Correct
-    double pose_noise = 4.8;
+    double pose_noise = 4.3;
     Eigen::Matrix<double, 3, 18> H;
 
 public:
@@ -55,10 +55,10 @@ public:
 
     /**
      * @brief Correct the robot's status by Inter-frame Visual Odometry Data
-     * @param vo Inter-frame Visual Odometry
+     * @param wvo Wheel-Visual Odometry
      * @param x Robot status
      */
-    void Correct(const nav_msgs::Odometry &vo, State &x);
+    void Correct(const WVO_Data &wvo_data, State &x);
     void State_update(State &x);
     void Error_State_Reset(State &x);
 
@@ -147,10 +147,10 @@ void ESKF::Predict(const WIO_Data &wio_data, const double &dt, State &x)
     // x.quaternion = x.quaternion * getQuaFromAA(q_v);
 
     // Update quaternion if both current and last quaternions are valid
-    if (wio_data.orientation.norm() != 0 && last_wio_orientation.norm() != 0)
+    if (wio_data.quaternion.norm() != 0 && last_wio_orientation.norm() != 0)
     {
         // Quaternion valid, update orientation according to delta quaternion
-        Eigen::Quaterniond q_q = last_wio_orientation.inverse() * wio_data.orientation;
+        Eigen::Quaterniond q_q = last_wio_orientation.inverse() * wio_data.quaternion;
         // std::cout << "q_q: (x=" << q_q.x() << ", y=" << q_q.y() << ", z=" << q_q.z() << ", w=" << q_q.w() << ")" << std::endl;
         x.quaternion = x.quaternion * q_q;
 
@@ -172,9 +172,9 @@ void ESKF::Predict(const WIO_Data &wio_data, const double &dt, State &x)
         }
     }
 
-    if (wio_data.orientation.norm() != 0)
+    if (wio_data.quaternion.norm() != 0)
     {
-        last_wio_orientation = wio_data.orientation;
+        last_wio_orientation = wio_data.quaternion;
     }
 
     // calcurate Jacobian Fx
@@ -254,11 +254,11 @@ Eigen::Matrix<double, 12, 12> ESKF::calcurate_Jacobian_Qi(const double dt)
  *
  * P_k = (I - KH)*P_{k-1}
  */
-void ESKF::Correct(const nav_msgs::Odometry &vo, State &x)
+void ESKF::Correct(const WVO_Data &wvo_data, State &x)
 {
-    Eigen::Vector3d Y(vo.pose.pose.position.x,
-                      vo.pose.pose.position.y,
-                      vo.pose.pose.position.z);
+    Eigen::Vector3d Y(wvo_data.position[0],
+                      wvo_data.position[1],
+                      wvo_data.position[2]);
 
     Eigen::Vector3d X(x.position[0],
                       x.position[1],

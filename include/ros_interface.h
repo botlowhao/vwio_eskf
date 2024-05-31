@@ -26,6 +26,7 @@ using namespace std;
 
 class ROS_Interface
 {
+
 private:
     ros::NodeHandle nh;
     bool init;
@@ -35,33 +36,40 @@ private:
     ros::Publisher odom_path_pub;
     ros::Publisher wio_path_pub;
     ros::Publisher wo_path_pub;
-    ros::Publisher vo_path_pub;
+    ros::Publisher wvo_path_pub;
     ros::Publisher estimated_path_pub;
-    ros::Publisher estimated_pose_pub;
+    ros::Publisher state_odom_pub_;
+    ros::Publisher wio_odom_pub_;
+    ros::Publisher wo_odom_pub_;
+    ros::Publisher wvo_odom_pub_;
 
-    // Subscriber
+    // Subscriberorientation
     // ros::Subscriber gps_sub;
     ros::Subscriber odom_sub;
     ros::Subscriber imu_sub;
     ros::Subscriber visual_odom_sub;
 
     // tf publish
-    tf::TransformBroadcaster odom_to_baselink_broadcaster;
-    geometry_msgs::TransformStamped odom_to_baselink;
+    // tf::TransformBroadcaster odom_to_baselink_broadcaster;
+    // geometry_msgs::TransformStamped odom_to_baselink;
 
     // publish data
     // nav_msgs::Path gps_path;
     nav_msgs::Path odom_path;
     nav_msgs::Path wio_path;
     nav_msgs::Path wo_path;
-    nav_msgs::Path vo_path;
+    nav_msgs::Path wvo_path;
     nav_msgs::Path estimated_path;
-    nav_msgs::Odometry estimated_pose;
+    nav_msgs::Odometry state_pose;
+    nav_msgs::Odometry wo_pose;
+    nav_msgs::Odometry wio_pose;
+    nav_msgs::Odometry wvo_pose;
 
     // ESKF variable
     State x;
     WIO_Data wio_data;
     WO_Data wo_data;
+    WVO_Data wvo_data;
     // GPS_Data gps_data;
     // map_projection_reference map_ref;
     // double lat0;
@@ -82,12 +90,14 @@ private:
     double delta_yaw;
 
     // Sensor Data source for SlidingWindowAvg
-    static const int VO_DATA_INDEX = 0;
+    static const int WVO_DATA_INDEX = 0;
 
 private:
     /**
      * @brief calculate the RPY angle by Quternion(w,x,y,z)
      *
+     * @param orientation orientation
+     * @return double yaw_angle
      */
     double calculateOrientation(const Eigen::Quaterniond &orientation);
 
@@ -143,20 +153,18 @@ public:
     void data_conversion_wo(double dt);
 
     /**
-     * @brief Use the position information of WIO_Data as the initial value,
+     * @brief Use the position information of WO_Data as the initial value,
      *        and then use vodom_msg to extract the inter-frame visual mileage as an increment for ESKF Correction
      * @param vodom_msg visual odometry
-     * @param wio_data Wheel-IMU Odometry Data
-     * @param vo Inter-frame visual Odometry
+     * @param wo_data Wheel Odometry Data
+     * @param wvo_data Wheel-Visual Odometry Data
      */
-    void data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_msg, const WO_Data &wo_data, nav_msgs::Odometry &vo);
+    void data_conversion_wvo(const nav_msgs::OdometryConstPtr &vodom_msg, const WO_Data &wo_data, WVO_Data &wvo_data);
 
     /**
-     * @brief filter the visual odometry data by SlidingWindowAvg
-     *
-     * @param vo visual odometry data
+     * @brief filter the Wheel-Visual odometry(WVO) data by SlidingWindowAvg
      */
-    void filter_vo_data(nav_msgs::Odometry &vo);
+    void filter_wvo_data();
 };
 
 /***********************************************************************
@@ -174,9 +182,12 @@ ROS_Interface::ROS_Interface(ros::NodeHandle &n)
     odom_path_pub = nh.advertise<nav_msgs::Path>("/odom_path", 10);
     wio_path_pub = nh.advertise<nav_msgs::Path>("/wio_path", 10);
     wo_path_pub = nh.advertise<nav_msgs::Path>("/wo_path", 10);
-    vo_path_pub = nh.advertise<nav_msgs::Path>("/vo_path", 10);
+    wvo_path_pub = nh.advertise<nav_msgs::Path>("/wvo_path", 10);
     estimated_path_pub = nh.advertise<nav_msgs::Path>("/estimated_path", 10);
-    estimated_pose_pub = nh.advertise<nav_msgs::Odometry>("/estimated_pose", 10);
+    state_odom_pub_ = nh.advertise<nav_msgs::Odometry>("/state_pose", 10);
+    wo_odom_pub_ = nh.advertise<nav_msgs::Odometry>("/wo_pose", 10);
+    wio_odom_pub_ = nh.advertise<nav_msgs::Odometry>("/wio_pose", 10);
+    wvo_odom_pub_ = nh.advertise<nav_msgs::Odometry>("/wvo_pose", 10);
 
     // Subscriber
     // gps_sub = nh.subscribe("/fix", 10, &ROS_Interface::gps_callback, this);
@@ -194,49 +205,40 @@ ROS_Interface::ROS_Interface(ros::NodeHandle &n)
     wio_path.header.stamp = ros::Time::now();
     wio_path.header.seq = 0;
 
-    // init imu_path
+    // init wo_path
     wo_path.header.frame_id = "map";
     wo_path.header.stamp = ros::Time::now();
     wo_path.header.seq = 0;
 
-    // init vo_path
-    vo_path.header.frame_id = "map";
-    vo_path.header.stamp = ros::Time::now();
-    vo_path.header.seq = 0;
+    // init wvo_path
+    wvo_path.header.frame_id = "map";
+    wvo_path.header.stamp = ros::Time::now();
+    wvo_path.header.seq = 0;
 
     // init estimated_path
     estimated_path.header.frame_id = "map";
     estimated_path.header.stamp = ros::Time::now();
     estimated_path.header.seq = 0;
 
+    // init wo_pose
+    wo_pose.header.frame_id = "map";
+    wo_pose.child_frame_id = "base_link";
+    wo_pose.header.stamp = ros::Time::now();
+
+    // init wio_pose
+    wio_pose.header.frame_id = "map";
+    wio_pose.child_frame_id = "base_link";
+    wio_pose.header.stamp = ros::Time::now();
+
+    // init wvo_pose
+    wvo_pose.header.frame_id = "map";
+    wvo_pose.child_frame_id = "base_link";
+    wvo_pose.header.stamp = ros::Time::now();
+
     // init estimated_pose
-    estimated_pose.header.frame_id = "map";
-    estimated_pose.child_frame_id = "base_link";
-    estimated_pose.header.stamp = ros::Time::now();
-
-    // init state
-    /*IMU_Data &imu_data
-    x.position = Eigen::Vector3d::Zero();
-    x.velocity = Eigen::Vector3d::Zero();
-    */
-    // x.quaternion = Eigen::Quaterniond(0.0, 0.0, 0.0, 0.0);
-    /*
-    x.acc_bias = Eigen::Vector3d::Zero();
-    x.gyro_bias = Eigen::Vector3d::Zero();
-    */
-
-    // x.gravity = Eigen::Vector3d(0., 0., 9.81007); // ned frame
-    x.gravity = Eigen::Vector3d(0., 0., -9.81007); // enu frame
-    /*
-    x.PEst = Eigen::Matrix<double, 18, 18>::Zero();
-    x.error = Eigen::Matrix<double, 18, 1>::Zero();
-    */
-
-    // init reference lat, lon projection
-    // geography.map_projection_init(&map_ref, lat, lon);
-    // lat0 = lat;
-    // lon0 = lon;
-    // alt0 = 0.0;
+    state_pose.header.frame_id = "map";
+    state_pose.child_frame_id = "base_link";
+    state_pose.header.stamp = ros::Time::now();
 }
 
 ROS_Interface::~ROS_Interface()
@@ -282,7 +284,6 @@ void ROS_Interface::odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
     {
         printf("ESKF_Init Status: %d\n", init);
     }
-
 }
 
 void ROS_Interface::imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
@@ -293,7 +294,7 @@ void ROS_Interface::imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
     data_conversion_wo(dt);
 
     // If the system have NOT been INITIALIZED
-    if (!init)
+    if (!init) 
     {
         return;
     }
@@ -346,13 +347,27 @@ void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg,
     {
         wio_data.gyro.setZero();
     }
+    // publish estimated_path
+    geometry_msgs::PoseStamped estimated_point;
+    estimated_point.header.frame_id = "map";
+    estimated_point.header.stamp = ros::Time::now();
+    estimated_point.pose.position.x = x.position[0];
+    estimated_point.pose.position.y = x.position[1];
+    estimated_point.pose.position.z = 0.0;
+    estimated_point.pose.orientation.x = x.quaternion.x();
+    estimated_point.pose.orientation.y = x.quaternion.y();
+    estimated_point.pose.orientation.z = x.quaternion.z();
+    estimated_point.pose.orientation.w = x.quaternion.w();
+
+    estimated_path.poses.push_back(estimated_point);
+    estimated_path_pub.publish(estimated_path);
     prev_angular_vel = wio_data.angular_vel;
 
     // Orientation
-    wio_data.orientation = Eigen::Quaterniond(imu_msg->orientation.w,
-                                              imu_msg->orientation.x,
-                                              imu_msg->orientation.y,
-                                              imu_msg->orientation.z);
+    wio_data.quaternion = Eigen::Quaterniond(imu_msg->orientation.w,
+                                             imu_msg->orientation.x,
+                                             imu_msg->orientation.y,
+                                             imu_msg->orientation.z);
 
     // current_yaw = calculateImuOrientation(wio_data.orientation);
 
@@ -400,13 +415,15 @@ void ROS_Interface::data_conversion_wo(double dt)
                                          wo_msg->twist.twist.linear.z);
 
     // Orientation
-    wo_data.orientation = Eigen::Quaterniond(wo_msg->pose.pose.orientation.w,
-                                             wo_msg->pose.pose.orientation.x,
-                                             wo_msg->pose.pose.orientation.y,
-                                             wo_msg->pose.pose.orientation.z);
+    wo_data.quaternion = Eigen::Quaterniond(wo_msg->pose.pose.orientation.w,
+                                            wo_msg->pose.pose.orientation.x,
+                                            wo_msg->pose.pose.orientation.y,
+                                            wo_msg->pose.pose.orientation.z);
 
-    wo_data.yaw_angle = calculateOrientation(wo_data.orientation);
+    // yaw_angle
+    wo_data.yaw_angle = calculateOrientation(wo_data.quaternion);
 
+    // position
     wo_data.position[0] += wo_data.linear_vel[0] * cos(wo_data.yaw_angle) * dt;
     wo_data.position[1] += wo_data.linear_vel[0] * sin(wo_data.yaw_angle) * dt;
     wo_data.position[2] = 0.0;
@@ -414,23 +431,24 @@ void ROS_Interface::data_conversion_wo(double dt)
 
 void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom_msg)
 {
-    // Create a new nav_msgs::Odometry object
-    nav_msgs::Odometry vo;
+    // Wheel-Visual-Odometry
+    data_conversion_wvo(vodom_msg, wo_data, wvo_data);
 
-    // Inter-frame Visual Odometry
-    data_conversion_vo(vodom_msg, wo_data, vo);
-
-    // filter the visual odometry data by SlidingWindowAvg
-    filter_vo_data(vo);
+    // filter the Wheel-Visual-Odometry data by SlidingWindowAvg
+    filter_wvo_data();
 
     // ESKF Correction
-    eskf.Correct(vo, x);
+    eskf.Correct(wvo_data, x);
 
     // ESKF State_update
     eskf.State_update(x);
 
     // ESKF Error_State_Reset
     eskf.Error_State_Reset(x);
+
+    /*---------------------------------------------------------------------
+     * Publish nav_msgs::OdometryPath
+     --------------------------------------------------------------------*/
 
     // publish odom_path
     geometry_msgs::PoseStamped odom_point;
@@ -453,10 +471,10 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
     wio_point.pose.position.x = wio_data.position[0];
     wio_point.pose.position.y = wio_data.position[1];
     wio_point.pose.position.z = 0.0;
-    wio_point.pose.orientation.w = wio_data.orientation.w();
-    wio_point.pose.orientation.x = wio_data.orientation.x();
-    wio_point.pose.orientation.y = wio_data.orientation.y();
-    wio_point.pose.orientation.z = wio_data.orientation.z();
+    wio_point.pose.orientation.w = wio_data.quaternion.w();
+    wio_point.pose.orientation.x = wio_data.quaternion.x();
+    wio_point.pose.orientation.y = wio_data.quaternion.y();
+    wio_point.pose.orientation.z = wio_data.quaternion.z();
     wio_path.poses.push_back(wio_point);
     wio_path_pub.publish(wio_path);
 
@@ -467,55 +485,22 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
     wo_point.pose.position.x = wo_data.position[0];
     wo_point.pose.position.y = wo_data.position[1];
     wo_point.pose.position.z = 0.0;
+    wo_point.pose.orientation.w = wo_data.quaternion.w();
+    wo_point.pose.orientation.x = wo_data.quaternion.x();
+    wo_point.pose.orientation.y = wo_data.quaternion.y();
+    wo_point.pose.orientation.z = wo_data.quaternion.z();
     wo_path.poses.push_back(wo_point);
     wo_path_pub.publish(wo_path);
 
-    // publish vo_path
-    // geometry_msgs::PoseStamped vo_point;
-    // vo_point.header.frame_id = "map";
-    // vo_point.header.stamp = ros::Time::now();
-    // vo_point.pose.position.x = vodom_msg->pose.pose.position.x;
-    // vo_point.pose.position.y = vodom_msg->pose.pose.position.y;
-    // vo_point.pose.position.z = 0.0;
-    // vo_point.pose.orientation.w = vodom_msg->pose.pose.orientation.w;
-    // vo_point.pose.orientation.x = vodom_msg->pose.pose.orientation.x;
-    // vo_point.pose.orientation.y = vodom_msg->pose.pose.orientation.y;
-    // vo_point.pose.orientation.z = vodom_msg->pose.pose.orientation.z;
-    // vo_path.poses.push_back(vo_point);
-    // vo_path_pub.publish(vo_path);
-
-    // publish vo_path
-    geometry_msgs::PoseStamped vo_point;
-    vo_point.header.frame_id = "map";
-    vo_point.header.stamp = ros::Time::now();
-    vo_point.pose.position.x = vo.pose.pose.position.x;
-    vo_point.pose.position.y = vo.pose.pose.position.y;
-    vo_point.pose.position.z = 0.0;
-    vo_path.poses.push_back(vo_point);
-    vo_path_pub.publish(vo_path);
-
-    // publish estimated_pose
-    estimated_pose.pose.pose.position.x = x.position[0];
-    estimated_pose.pose.pose.position.y = x.position[1];
-    estimated_pose.pose.pose.position.z = 0.0;
-    estimated_pose.pose.pose.orientation.x = x.quaternion.x();
-    estimated_pose.pose.pose.orientation.y = x.quaternion.y();
-    estimated_pose.pose.pose.orientation.z = x.quaternion.z();
-    estimated_pose.pose.pose.orientation.w = x.quaternion.w();
-    estimated_pose_pub.publish(estimated_pose);
-
-    // /odom to /base_link transform broadcast
-    // odom_to_baselink.header.stamp = ros::Time::now();
-    // odom_to_baselink.header.frame_id = "odom";
-    // odom_to_baselink.child_frame_id = "base_link";
-    // odom_to_baselink.transform.translation.x = x.position[0];
-    // odom_to_baselink.transform.translation.y = x.position[1];
-    // odom_to_baselink.transform.translation.z = 0.0;
-    // odom_to_baselink.transform.rotation.x = x.quaternion.x();
-    // odom_to_baselink.transform.rotation.y = x.quaternion.y();
-    // odom_to_baselink.transform.rotation.z = x.quaternion.z();
-    // odom_to_baselink.transform.rotation.w = x.quaternion.w();
-    // odom_to_baselink_broadcaster.sendTransform(odom_to_baselink);
+    // publish wvo_path
+    geometry_msgs::PoseStamped wvo_point;
+    wvo_point.header.frame_id = "map";
+    wvo_point.header.stamp = ros::Time::now();
+    wvo_point.pose.position.x = wvo_data.position[0];
+    wvo_point.pose.position.y = wvo_data.position[1];
+    wvo_point.pose.position.z = 0.0;
+    wvo_path.poses.push_back(wvo_point);
+    wvo_path_pub.publish(wvo_path);
 
     // publish estimated_path
     geometry_msgs::PoseStamped estimated_point;
@@ -531,9 +516,70 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
     estimated_path.poses.push_back(estimated_point);
     estimated_path_pub.publish(estimated_path);
+
+    /*---------------------------------------------------------------------
+     * Publish geometry_msgs::TransformStamped
+     --------------------------------------------------------------------*/
+
+    // /odom to /base_link transform broadcast
+    // odom_to_baselink.header.stamp = ros::Time::now();
+    // odom_to_baselink.header.frame_id = "odom";
+    // odom_to_baselink.child_frame_id = "base_link";
+    // odom_to_baselink.transform.translation.x = x.position[0];
+    // odom_to_baselink.transform.translation.y = x.position[1];
+    // odom_to_baselink.transform.translation.z = 0.0;
+    // odom_to_baselink.transform.rotation.x = x.quaternion.x();
+    // odom_to_baselink.transform.rotation.y = x.quaternion.y();
+    // odom_to_baselink.transform.rotation.z = x.quaternion.z();
+    // odom_to_baselink.transform.rotation.w = x.quaternion.w();
+    // odom_to_baselink_broadcaster.sendTransform(odom_to_baselink);
+
+    /*---------------------------------------------------------------------
+     * Publish nav_msgs::Odometry
+     --------------------------------------------------------------------*/
+
+    // publish wo_pose
+    wo_pose.pose.pose.position.x = wo_data.position[0];
+    wo_pose.pose.pose.position.y = wo_data.position[1];
+    wo_pose.pose.pose.position.z = 0.0;
+    wo_pose.pose.pose.orientation.x = wo_data.quaternion.x();
+    wo_pose.pose.pose.orientation.y = wo_data.quaternion.y();
+    wo_pose.pose.pose.orientation.z = wo_data.quaternion.z();
+    wo_pose.pose.pose.orientation.w = wo_data.quaternion.w();
+    wo_odom_pub_.publish(wo_pose);
+
+    // publish wio_pose
+    wio_pose.pose.pose.position.x = wio_data.position[0];
+    wio_pose.pose.pose.position.y = wio_data.position[1];
+    wio_pose.pose.pose.position.z = 0.0;
+    wio_pose.pose.pose.orientation.x = wio_data.quaternion.x();
+    wio_pose.pose.pose.orientation.y = wio_data.quaternion.y();
+    wio_pose.pose.pose.orientation.z = wio_data.quaternion.z();
+    wio_pose.pose.pose.orientation.w = wio_data.quaternion.w();
+    wio_odom_pub_.publish(wio_pose);
+
+    // publish wvo_pose
+    wvo_pose.pose.pose.position.x = wvo_data.position[0];
+    wvo_pose.pose.pose.position.y = wvo_data.position[1];
+    wvo_pose.pose.pose.position.z = 0.0;
+    wvo_pose.pose.pose.orientation.x = wvo_data.quaternion.x();
+    wvo_pose.pose.pose.orientation.y = wvo_data.quaternion.y();
+    wvo_pose.pose.pose.orientation.z = wvo_data.quaternion.z();
+    wvo_pose.pose.pose.orientation.w = wvo_data.quaternion.w();
+    wvo_odom_pub_.publish(wvo_pose);
+
+    // publish state_pose
+    state_pose.pose.pose.position.x = x.position[0];
+    state_pose.pose.pose.position.y = x.position[1];
+    state_pose.pose.pose.position.z = 0.0;
+    state_pose.pose.pose.orientation.x = x.quaternion.x();
+    state_pose.pose.pose.orientation.y = x.quaternion.y();
+    state_pose.pose.pose.orientation.z = x.quaternion.z();
+    state_pose.pose.pose.orientation.w = x.quaternion.w();
+    state_odom_pub_.publish(state_pose);
 }
 
-void ROS_Interface::data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_msg, const WO_Data &wo_data, nav_msgs::Odometry &vo)
+void ROS_Interface::data_conversion_wvo(const nav_msgs::OdometryConstPtr &vodom_msg, const WO_Data &wo_data, WVO_Data &wvo_data)
 {
     // Set the threshold
     const double min_threshold = 0.5;
@@ -557,15 +603,15 @@ void ROS_Interface::data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_m
         is_initialized = true;
     }
 
-    // If WIO data indicates the robot has not moved, ignore visual odometry data
+    // If WO data indicates the robot has not moved, ignore visual odometry data
     if (wo_data.position[0] == 0.0 && wo_data.position[1] == 0.0)
     {
-        // Reset prev_vodom to current_vodom to avoid large jumps when WIO data starts updating
+        // Reset prev_vodom to current_vodom to avoid large jumps when WO data starts updating
         prev_vodom = current_vodom;
-        // Use WIO data directly
-        vo.pose.pose.position.x = 0.0;
-        vo.pose.pose.position.y = 0.0;
-        vo.pose.pose.position.z = 0.0;
+        // Use WO data directly
+        wvo_data.position[0] = 0.0;
+        wvo_data.position[1] = 0.0;
+        wvo_data.position[2] = 0.0;
         return;
     }
 
@@ -582,10 +628,10 @@ void ROS_Interface::data_conversion_vo(const nav_msgs::OdometryConstPtr &vodom_m
         incremental_vo = Eigen::Vector3d::Zero();
     }
 
-    // Update visual odometry data
-    vo.pose.pose.position.x = wo_data.position[0] + incremental_vo[0];
-    vo.pose.pose.position.y = wo_data.position[1] + incremental_vo[1];
-    vo.pose.pose.position.z = 0.0;
+    // Update WVO position data
+    wvo_data.position[0] = wo_data.position[0] + incremental_vo[0];
+    wvo_data.position[1] = wo_data.position[1] + incremental_vo[1];
+    wvo_data.position[2] = 0.0;
 }
 
 double ROS_Interface::calculateOrientation(const Eigen::Quaterniond &orientation)
@@ -620,7 +666,7 @@ double ROS_Interface::calculateOrientation(const Eigen::Quaterniond &orientation
     return yaw;
 }
 
-void ROS_Interface::filter_vo_data(nav_msgs::Odometry &vo)
+void ROS_Interface::filter_wvo_data()
 {
     const int max_sensor_num = 9;
     const int max_data_num = 9;
@@ -628,13 +674,13 @@ void ROS_Interface::filter_vo_data(nav_msgs::Odometry &vo)
 
     static Filter filter(max_sensor_num, max_data_num, window_data_num);
 
-    Eigen::Vector3d vo_position(vo.pose.pose.position.x, vo.pose.pose.position.y, vo.pose.pose.position.z);
+    Eigen::Vector3d wvo_position(wvo_data.position[0], wvo_data.position[1], wvo_data.position[2]);
 
-    Eigen::Vector3d filtered_vo_position = filter.slidingWindowAvgFilter(VO_DATA_INDEX, vo_position);
+    Eigen::Vector3d filtered_wvo_position = filter.slidingWindowAvgFilter(WVO_DATA_INDEX, wvo_position);
 
-    vo.pose.pose.position.x = filtered_vo_position.x();
-    vo.pose.pose.position.y = filtered_vo_position.y();
-    vo.pose.pose.position.z = filtered_vo_position.z();
+    wvo_data.position[0] = filtered_wvo_position[0];
+    wvo_data.position[1] = filtered_wvo_position[1];
+    wvo_data.position[2] = filtered_wvo_position[2];
 }
 
 #endif // ROS_INTERFACE

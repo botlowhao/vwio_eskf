@@ -6,19 +6,20 @@
 #include <Eigen/Geometry>
 #include <math.h>
 
+
 struct WO_Data
 {
     double timestamp;
 
     Eigen::Vector3d position;
-    Eigen::Quaterniond orientation;
+    Eigen::Quaterniond quaternion;
     Eigen::Vector3d linear_vel;
     Eigen::Vector3d angular_vel;
     double yaw_angle;
 
     WO_Data() : timestamp(0.0),
                 position(Eigen::Vector3d(0.0, 0.0, 0.0)),
-                orientation(Eigen::Quaterniond::Identity()),
+                quaternion(Eigen::Quaterniond::Identity()),
                 linear_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
                 angular_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
                 yaw_angle(0.0)
@@ -39,7 +40,7 @@ struct WIO_Data
     double timestamp;
 
     Eigen::Vector3d position;
-    Eigen::Quaterniond orientation;
+    Eigen::Quaterniond quaternion;
     Eigen::Vector3d linear_vel;
     Eigen::Vector3d angular_vel;
     Eigen::Vector3d acc;
@@ -48,7 +49,7 @@ struct WIO_Data
 
     WIO_Data() : timestamp(0.0),
                  position(Eigen::Vector3d(0.0, 0.0, 0.0)),
-                 orientation(Eigen::Quaterniond::Identity()),
+                 quaternion(Eigen::Quaterniond::Identity()),
                  linear_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
                  angular_vel(Eigen::Vector3d(0.0, 0.0, 0.0)),
                  acc(Eigen::Vector3d(0.0, 0.0, 0.0)),
@@ -57,6 +58,21 @@ struct WIO_Data
     {
     }
 };
+
+struct WVO_Data
+{
+    double timestamp;
+
+    Eigen::Vector3d position;
+    Eigen::Quaterniond quaternion;
+
+    WVO_Data() : timestamp(0.0),
+                 position(Eigen::Vector3d(0.0, 0.0, 0.0)),
+                 quaternion(Eigen::Quaterniond::Identity())
+    {
+    }
+};
+
 
 struct State
 {
@@ -70,6 +86,22 @@ struct State
     Eigen::Vector3d gravity;
     Eigen::Matrix<double, 18, 18> PEst;
     Eigen::Matrix<double, 18, 1> error;
+
+
+    State() : timestamp(0.0),
+              position(Eigen::Vector3d::Zero()),
+              velocity(Eigen::Vector3d::Zero()),
+              quaternion(Eigen::Quaterniond(0.0, 0.0, 0.0, 0.0)),
+              acc_bias(Eigen::Vector3d::Zero()),
+              gyro_bias(Eigen::Vector3d::Zero()),
+              gravity(Eigen::Vector3d(0., 0., -9.81007)),
+              PEst(Eigen::Matrix<double, 18, 18>::Zero()),
+              error(Eigen::Matrix<double, 18, 1>::Zero())
+
+    {
+
+    }
+
 };
 
 /* lat/lon are in radians */
