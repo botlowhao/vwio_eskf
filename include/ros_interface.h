@@ -20,8 +20,6 @@
 
 #include <fstream> // Include this for file handling
 
-// int yaw_flag = 0;
-
 using namespace std;
 
 class ROS_Interface
@@ -169,6 +167,12 @@ public:
      * @brief filter the Wheel-Visual odometry(WVO) data by SlidingWindowAvg
      */
     void filter_wvo_data();
+
+    /**
+     * @brief Get the Value For WO-ANFIS object
+     *
+     */
+    void getValueForWOANFIS();
 };
 
 /***********************************************************************
@@ -258,6 +262,7 @@ void ROS_Interface::imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
     delta_yaw = 0.0;
     data_conversion_wio(imu_msg, wio_data, dt);
     data_conversion_wo(dt);
+    getValueForWOANFIS();
 
     // If the system have NOT been INITIALIZED
     if (!init)
@@ -360,10 +365,15 @@ void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg,
 void ROS_Interface::data_conversion_wo(double dt)
 {
 
-    // linear_velocity
+    // Linear_velocity
     wo_data.linear_vel = Eigen::Vector3d(wo_msg->twist.twist.linear.x,
                                          wo_msg->twist.twist.linear.y,
                                          wo_msg->twist.twist.linear.z);
+
+    // Angular_velocity
+    wo_data.angular_vel = Eigen::Vector3d(wo_msg->twist.twist.angular.x,
+                                          wo_msg->twist.twist.angular.y,
+                                          wo_msg->twist.twist.angular.z);
 
     // Orientation
     wo_data.quaternion = Eigen::Quaterniond(wo_msg->pose.pose.orientation.w,
@@ -651,6 +661,59 @@ void ROS_Interface::filter_wvo_data()
     wvo_data.position[0] = filtered_wvo_position[0];
     wvo_data.position[1] = filtered_wvo_position[1];
     wvo_data.position[2] = filtered_wvo_position[2];
+}
+
+void ROS_Interface::getValueForWOANFIS()
+{
+    // Parameters: wheelbase and wheel radius
+    const double b = 0.22; // Wheelbase in meters
+    const double r = 0.04; // Wheel radius in meters
+
+    // Define the velocities of the left and right wheels and the wheel speed difference
+    double v_l, v_r, delta_v;
+
+    // Define linear velocity v and angular velocity w
+    double v_x = wo_data.linear_vel[0];  // Linear velocity in meters/second
+    double w_z = wo_data.angular_vel[2]; // Angular velocity in radians/second
+
+    // Calculate the velocities of the left and right wheels respectively (in RPM)
+    v_l = (2 * v_x + w_z * b) * 60 / (4 * M_PI * r);
+    v_r = (2 * v_x - w_z * b) * 60 / (4 * M_PI * r);
+
+    // Print v_l and v_r to the terminal
+    std::cout << "Left wheel velocity (v_l): " << v_l << " RPM" << std::endl;
+    std::cout << "Right wheel velocity (v_r): " << v_r << " RPM" << std::endl;
+
+    // Calculate the wheel speed difference and take the absolute value (in RPM)
+    delta_v = std::abs(v_l - v_r);
+    std::cout << "Velocity DIfference(delta_v): " << delta_v << " RPM" << std::endl;
+    std::cout << "Angular Velocity of Z-Axis (w_z): " << w_z << " rad/s" << std::endl;
+
+    // Open the CSV file in append mode
+    std::ofstream outfile;
+    outfile.open("/home/wyatt/catkin_ws/src/vwio_eskf/666.csv", std::ios_base::app);
+
+    // Check if the file was successfully opened
+    if (outfile.is_open())
+    {
+        // If the file is empty, write the column headers
+        outfile.seekp(0, std::ios::end);
+        if (outfile.tellp() == 0)
+        {
+            outfile << "delta_v (RPM),w (rad/s)\n";
+        }
+
+        // Write delta_v and w to the CSV file
+        // delta_v in RPM, w in radians/second
+        outfile << delta_v << "," << w_z << "\n";
+        // Close the file
+        outfile.close();
+    }
+    else
+    {
+        // If the file cannot be opened, output an error message
+        std::cerr << "Unable to open file";
+    }
 }
 
 #endif // ROS_INTERFACE

@@ -6,7 +6,7 @@
     <node pkg="vwio_eskf" name="eskf_localization" type="eskf_localization" output="screen"/>
 
     <!-- play dataset -->
-    <node pkg="rosbag" type="play" name="player" output="screen" args="--clock /home/wheeltec/catkin_ws/src/vwio_eskf/dataset/20240425_record/sensor_sync_8.bag"/>
+    <node pkg="rosbag" type="play" name="player" output="screen" args="--clock /home/wyatt/catkin_ws/src/vwio_eskf/dataset/20240425_record/sensor_sync_8.bag"/>
 
     <!--display rviz-->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find vwio_eskf)/rviz/vwio_eskf_localization.rviz" required="true"/>

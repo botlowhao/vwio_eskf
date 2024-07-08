@@ -1,5 +1,5 @@
 <launch>
   <!-- 启动wo_record节点并录制里程计话题 -->
-  <node name="odometry_record" pkg="rosbag" type="record" args="-O /home/wheeltec/catkin_ws/src/evo/vwio_eskf/20240531/odometry_20240531.bag /wo_pose /wio_pose /wvo_pose /state_pose" output="screen"/>
+  <node name="odometry_record" pkg="rosbag" type="record" args="-O /home/wyatt/catkin_ws/src/evo/vwio_eskf/20240531/odometry_20240531.bag /wo_pose /wio_pose /wvo_pose /state_pose" output="screen"/>
 
 </launch>
