@@ -10,6 +10,17 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   tf
+  message_generation
+)
+
+add_message_files(
+  FILES
+  WOFISData.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
 )
 
 find_package(Eigen3 REQUIRED)
@@ -21,7 +32,7 @@ find_package(Ceres REQUIRED)  # 添加这一行来查找Ceres Solver
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS cmake_modules roscpp sensor_msgs
+  CATKIN_DEPENDS cmake_modules roscpp sensor_msgs std_msgs message_runtime
   DEPENDS EIGEN3 CERES  # 将CERES添加到依赖项中
 )
 

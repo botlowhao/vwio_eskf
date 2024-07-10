@@ -97,6 +97,18 @@ struct State
               gravity(Eigen::Vector3d(0., 0., -9.81007)),
               PEst(Eigen::Matrix<double, 18, 18>::Zero()),
               error(Eigen::Matrix<double, 18, 1>::Zero())
+    {
+
+    }
+
+};
+
+struct WOFISData {
+    double delta_v;
+    double w_z;
+
+    WOFISData() : delta_v(0.0),
+                  w_z(0.0)
 
     {
 
