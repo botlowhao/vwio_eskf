@@ -18,6 +18,7 @@
 #include "fis_getdata.h"
 #include "filter.h"
 #include "vwio_eskf/WOFISData.h" 
+#include "vwio_eskf/Q1Data.h"
 
 #include <fstream> // Include this for file handling
 
@@ -25,6 +26,9 @@ using namespace std;
 
 class ROS_Interface
 {
+
+public:
+    vwio_eskf::Q1Data custom_q1_data;
 
 private:
     ros::NodeHandle nh;
@@ -48,6 +52,7 @@ private:
     ros::Subscriber odom_sub;
     ros::Subscriber imu_sub;
     ros::Subscriber visual_odom_sub;
+    ros::Subscriber q1_sub;
 
     // tf publish
     // tf::TransformBroadcaster odom_to_baselink_broadcaster;
@@ -179,6 +184,12 @@ public:
      * 
      */
     void publish_WOFIS();
+
+    /**
+     * @brief Q1 noise
+     * 
+     */
+    void Q1_msg_callback(const vwio_eskf::Q1Data &ros_q1_data);
 };
 
 /***********************************************************************
@@ -202,13 +213,14 @@ ROS_Interface::ROS_Interface(ros::NodeHandle &n)
     wo_odom_pub_ = nh.advertise<nav_msgs::Odometry>("/wo_pose", 50);
     wio_odom_pub_ = nh.advertise<nav_msgs::Odometry>("/wio_pose", 50);
     wvo_odom_pub_ = nh.advertise<nav_msgs::Odometry>("/wvo_pose", 50);
-    wofis_pub_ = nh.advertise<vwio_eskf::WOFISData>("wofis_data", 100);
+    wofis_pub_ = nh.advertise<vwio_eskf::WOFISData>("WOFIS_msg", 100);
 
     // Subscriber
     // gps_sub = nh.subscribe("/fix", 10, &ROS_Interface::gps_callback, this);
     odom_sub = nh.subscribe("/wo_sync", 10, &ROS_Interface::odom_callback, this);
     imu_sub = nh.subscribe("/imu_sync", 10, &ROS_Interface::imu_callback, this);
     visual_odom_sub = nh.subscribe("/vo_sync", 10, &ROS_Interface::visual_odom_callback, this);
+    q1_sub = nh.subscribe("/Q1_msg", 10, &ROS_Interface::Q1_msg_callback, this);
 
     // init odom_path
     odom_path.header.frame_id = "map";
@@ -679,6 +691,11 @@ void ROS_Interface::publish_WOFIS()
     ros_wofisdata.delta_v = custom_wofisdata.delta_v;
     ros_wofisdata.w_z = custom_wofisdata.w_z;
     wofis_pub_.publish(ros_wofisdata);
+}
+
+void ROS_Interface::Q1_msg_callback(const vwio_eskf::Q1Data &ros_q1_data)
+{
+    custom_q1_data.q1 = ros_q1_data.q1;
 }
 
 #endif // ROS_INTERFACE

@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   WOFISData.msg
+  Q1Data.msg
 )
 
 generate_messages(
