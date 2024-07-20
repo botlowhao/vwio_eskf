@@ -1,0 +1,11 @@
+<launch>
+  <!-- 启动wo_record节点并录制里程计话题 -->
+  <node name="odometry_record" pkg="rosbag" type="record" args="-O /home/wyatt/catkin_ws/src/vwio_eskf/evo_test/sensor_sync_6/plot_sync_6/fis_eskf_20240713.bag /state_pose" output="screen"/>
+
+
+  <include file="$(find vwio_eskf)/launch/fis_eskf.launch"/>
+
+</launch>
+
+
+

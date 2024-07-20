@@ -137,15 +137,15 @@ def plot_rpy_components(dfs, labels):
     plt.show()
 
 def main():
-    file_paths = ['wo_pose.tum', 'wio_pose.tum', 'wvo_pose.tum', 'state_pose.tum']
-    labels = ['WO Pose', 'WIO Pose', 'WVO Pose', 'State Pose']
+    file_paths = ['wo_pose.tum', 'wio_pose.tum', 'wvo_pose.tum', 'eskf.tum', 'eskf_fis.tum']
+    labels = ['WO Pose', 'WIO Pose', 'WVO Pose', 'ESKF Pose', 'ESKF_FIS Pose']
 
     dfs = []
     for file_path, label in zip(file_paths, labels):
         df = read_tum_data(file_path)
         if len(df) > 0:
             df = compute_velocity(df)
-            if label not in ['WVO Pose', 'State Pose']:  # 过滤掉 wvo_pose 和 state_pose
+            if label not in ['WVO Pose', 'ESKF Pose', 'ESKF_FIS Pose']:  # 过滤掉 wvo_pose 和 eskf_pose 和 eskf_fis_pose
                 df = compute_rpy(df)
         dfs.append(df)
 

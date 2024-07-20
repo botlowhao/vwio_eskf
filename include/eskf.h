@@ -3,11 +3,15 @@
 
 #include <iostream>
 #include "state_variable.h"
+#include "vwio_eskf/Q1Data.h"
 
 using namespace std;
 
 class ESKF
 {
+public:
+    vwio_eskf::Q1Data custom_q1_data;
+
 private:
     // Init
     double position_noise = 1.2;
@@ -21,7 +25,9 @@ private:
     double gyro_bias_noise = 5e-4;
     Eigen::Matrix<double, 18, 18> Fx;
     Eigen::Matrix<double, 18, 12> Fi;
+    Eigen::Matrix<double, 18, 15> Fi_fis;
     Eigen::Matrix<double, 12, 12> Qi;
+    Eigen::Matrix<double, 15, 15> Qi_fis;
 
     // last wio orientation
     Eigen::Quaterniond last_wio_orientation;
@@ -59,6 +65,8 @@ public:
      * @param x Robot status
      */
     void Correct(const WVO_Data &wvo_data, State &x);
+    void CorrectWithIterators(const WVO_Data &wvo_data, int max_iterations, double convergence_threshold, State &x);
+
     void State_update(State &x);
     void Error_State_Reset(State &x);
 
@@ -70,8 +78,14 @@ public:
     // Predict
     Eigen::Matrix<double, 18, 18> calcurate_Jacobian_Fx(Eigen::Vector3d acc, Eigen::Vector3d acc_bias, Eigen::Matrix3d R, const double dt);
     // Eigen::Matrix<double, 18, 18> calcurate_Jacobian_Fx(Eigen::Vector3d acc, Eigen::Vector3d acc_bias, Eigen::Vector3d gyro, Eigen::Vector3d gyro_bias, Eigen::Matrix3d R, const double dt);
+
+    // Compute Q Without FIS_WO
     Eigen::Matrix<double, 18, 12> calcurate_Jacobian_Fi();
     Eigen::Matrix<double, 12, 12> calcurate_Jacobian_Qi(const double dt);
+
+    // Compute Q With FIS_WO
+    Eigen::Matrix<double, 18, 15> calcurate_Jacobian_Fi_WithFIS();
+    Eigen::Matrix<double, 15, 15> calcurate_Jacobian_Qi_WithFIS(const double dt);
 
     // Correct
     Eigen::Matrix<double, 3, 18> calcurate_Jacobian_H(State &x);
@@ -101,8 +115,8 @@ void ESKF::Init(const nav_msgs::OdometryConstPtr &odom_msg, State &x)
 
     Eigen::Vector3d odom_position;
     odom_position << odom_msg->pose.pose.position.x,
-                     odom_msg->pose.pose.position.y,
-                     odom_msg->pose.pose.position.z;
+        odom_msg->pose.pose.position.y,
+        odom_msg->pose.pose.position.z;
 
     // Set the position of the state to the NED (North-East-Down) coordinates of the GPS data
     x.position = odom_position;
@@ -183,12 +197,17 @@ void ESKF::Predict(const WIO_Data &wio_data, const double &dt, State &x)
 
     // calcurate Jacobian Fi
     Fi = calcurate_Jacobian_Fi();
+    Fi_fis = calcurate_Jacobian_Fi_WithFIS();
 
     // ccalcurate Jacobian Qi
     Qi = calcurate_Jacobian_Qi(dt);
+    Qi_fis = calcurate_Jacobian_Qi_WithFIS(dt);
 
     // calcurate PEst
-    x.PEst = Fx * x.PEst * Fx.transpose() + Fi * Qi * Fi.transpose();
+    // x.PEst = Fx * x.PEst * Fx.transpose() + Fi * Qi * Fi.transpose();
+
+    // Calcurate PEst When FIS-WO Have Activated
+    x.PEst = Fx * x.PEst * Fx.transpose() + Fi_fis * Qi_fis * Fi_fis.transpose();
 }
 
 Eigen::Matrix<double, 18, 18> ESKF::calcurate_Jacobian_Fx(Eigen::Vector3d acc, Eigen::Vector3d acc_bias, Eigen::Matrix3d R, const double dt)
@@ -226,6 +245,14 @@ Eigen::Matrix<double, 18, 12> ESKF::calcurate_Jacobian_Fi()
     return Fi;
 }
 
+Eigen::Matrix<double, 18, 15> ESKF::calcurate_Jacobian_Fi_WithFIS()
+{
+    Eigen::Matrix<double, 18, 15> Fi_fis = Eigen::Matrix<double, 18, 15>::Zero();
+    Fi_fis.block<12, 15>(3, 0) = Eigen::Matrix<double, 12, 15>::Identity();
+
+    return Fi_fis;
+}
+
 Eigen::Matrix<double, 12, 12> ESKF::calcurate_Jacobian_Qi(const double dt)
 {
     Eigen::Matrix<double, 12, 12> Qi = Eigen::Matrix<double, 12, 12>::Zero();
@@ -235,6 +262,19 @@ Eigen::Matrix<double, 12, 12> ESKF::calcurate_Jacobian_Qi(const double dt)
     Qi.block<3, 3>(9, 9) = dt * gyro_bias_noise * Eigen::Matrix3d::Identity();
 
     return Qi;
+}
+
+Eigen::Matrix<double, 15, 15> ESKF::calcurate_Jacobian_Qi_WithFIS(const double dt)
+{
+    Eigen::Matrix<double, 15, 15> Qi_fis = Eigen::Matrix<double, 15, 15>::Zero();
+    Qi_fis.block<3, 3>(0, 0) = dt * dt * custom_q1_data.q1 * Eigen::Matrix3d::Identity();
+    Qi_fis.block<3, 3>(3, 3) = dt * dt * acc_noise * Eigen::Matrix3d::Identity();
+    Qi_fis.block<3, 3>(6, 6) = dt * dt * gyro_noise * Eigen::Matrix3d::Identity();
+    Qi_fis.block<3, 3>(9, 9) = dt * acc_bias_noise * Eigen::Matrix3d::Identity();
+    Qi_fis.block<3, 3>(12, 12) = dt * gyro_bias_noise * Eigen::Matrix3d::Identity();
+
+    // std:cout << "Qi_fis = " << Qi_fis << std::endl;
+    return Qi_fis;
 }
 
 // https://qiita.com/rsasaki0109/items/e969ad632cf321e25a6a
@@ -264,45 +304,10 @@ void ESKF::Correct(const WVO_Data &wvo_data, State &x)
                       x.position[1],
                       x.position[2]);
 
-    /*
-
-    // 限制协方差矩阵P的值
-    const double max_covariance_value = 10;         // 设置最大的协方差值
-    x.PEst = x.PEst.cwiseMin(max_covariance_value); // 将协方差矩阵中的每个元素限制在最大值内
-
-    // 控制噪声矩阵V的值
-    const double min_noise_value = 0.8; // 设置最小的噪声值
-    Eigen::Matrix3d V = pose_noise * Eigen::Matrix3d::Identity();
-    V = V.cwiseMax(min_noise_value); // 将噪声矩阵中的每个元素限制在最小值以上
-
-    */
-
     Eigen::Matrix3d V = pose_noise * Eigen::Matrix3d::Identity();
 
     // calcurate Jacobian H
     H = calcurate_Jacobian_H(x);
-
-    /*
-    // 计算卡尔曼增益矩阵 K
-    Eigen::MatrixXd K = Eigen::MatrixXd::Zero(x.PEst.rows(), Y.size()); // 初始化 K 矩阵
-    if (!std::isnan(x.PEst.sum()) && !std::isnan(H.sum()) && !std::isnan(V.sum()))
-    {
-        // 如果输入的矩阵没有 NaN 值，才进行计算
-        K = x.PEst * H.transpose() * (H * x.PEst * H.transpose() + V).inverse();
-    }
-    else
-    {
-        ROS_WARN("NaN detected in covariance or Jacobian or noise matrix. Skipping correction step.");
-        return;
-    }
-
-    // 检查计算结果是否有 NaN 值
-    if (std::isnan(K.sum()))
-    {
-        ROS_WARN("NaN detected in Kalman Gain. Skipping correction step.");
-        return;
-    }
-    */
 
     // calcurate Klaman Gein
     Eigen::MatrixXd K = x.PEst * H.transpose() * (H * x.PEst * H.transpose() + V).inverse();
@@ -312,15 +317,51 @@ void ESKF::Correct(const WVO_Data &wvo_data, State &x)
 
     // calcurate PEst
     x.PEst = (Eigen::Matrix<double, 18, 18>::Identity() - K * H) * x.PEst;
-
-    // Convert K matrix to string
-    // std::stringstream ss;
-    // ss << "Jacobian Gain K:\n"
-    //    << K;
-
-    // Output K matrix using ROS_INFO
-    // ROS_INFO("%s", ss.str().c_str());
 }
+
+void ESKF::CorrectWithIterators(const WVO_Data &wvo_data, int max_iterations, double convergence_threshold, State &x)
+{
+    // Measurement vector
+    Eigen::Vector3d Y(wvo_data.position[0],
+                      wvo_data.position[1],
+                      wvo_data.position[2]);
+
+    // Current state estimate's position
+    Eigen::Vector3d X(x.position[0],
+                      x.position[1],
+                      x.position[2]);
+
+    // Noise covariance matrix
+    Eigen::Matrix3d V = pose_noise * Eigen::Matrix3d::Identity();
+
+    // Initialize Kalman gain K and Jacobian H outside the loop
+    Eigen::Matrix<double, 3, 18> H;
+    Eigen::MatrixXd K;
+
+    // Iterative correction
+    for(int i = 0; i < max_iterations; ++i)
+    {
+        // Calculate Jacobian H
+        H = calcurate_Jacobian_H(x);
+
+        // Calculate Kalman gain K
+        K = x.PEst * H.transpose() * (H * x.PEst * H.transpose() + V).inverse();
+
+        // Calculate innovation error
+        Eigen::VectorXd dx = K * (Y - X);
+
+        // Save the error for further use
+        x.error = dx;
+
+        // Check for convergence
+        if(dx.norm() < convergence_threshold)
+            break;
+    }
+
+    // Update covariance matrix PEst using the last calculated K and H
+    x.PEst = (Eigen::Matrix<double, 18, 18>::Identity() - K * H) * x.PEst;
+}
+
 
 Eigen::Matrix<double, 3, 18> ESKF::calcurate_Jacobian_H(State &x)
 {

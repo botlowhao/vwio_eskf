@@ -26,10 +26,6 @@ using namespace std;
 
 class ROS_Interface
 {
-
-public:
-    vwio_eskf::Q1Data custom_q1_data;
-
 private:
     ros::NodeHandle nh;
     bool init;
@@ -418,7 +414,8 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
     filter_wvo_data();
 
     // ESKF Correction
-    eskf.Correct(wvo_data, x);
+    // eskf.Correct(wvo_data, x);
+    eskf.CorrectWithIterators(wvo_data, 5, 1e-6, x);
 
     // ESKF State_update
     eskf.State_update(x);
@@ -695,7 +692,7 @@ void ROS_Interface::publish_WOFIS()
 
 void ROS_Interface::Q1_msg_callback(const vwio_eskf::Q1Data &ros_q1_data)
 {
-    custom_q1_data.q1 = ros_q1_data.q1;
+    eskf.custom_q1_data.q1 = ros_q1_data.q1;
 }
 
 #endif // ROS_INTERFACE
