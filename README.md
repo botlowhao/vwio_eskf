@@ -2,15 +2,23 @@
 ROS1 Package Using ESKF/IESKF Method for Muti-Sensor Fusion(Wheel Odometry, Inertial Odometry, Visual Odometry)
 ## Overview
 ### Functionality completed
-- [x] Construst **Wheel-Inertial Odometry** (WIO).
+<!-- - [x] Construst **Wheel-Inertial Odometry** (WIO).
 - [x] Construst **Wheel-Visual Odometry** (WVO).
 - [x] Wheel-Inertial Odometry (WIO) and Wheel-Visual Odometry (WVO) Fusion Localization by **ESKF/IESKF method**.
 - [x] Construct **Wheel Odometry Fuzzy Inference System**(WOFIS) with another ROS Package [fis_wo](https://github.com/botlowhao/fis_wo).
   - [x] Custom define ROS data type(vwio_eskf::WOFISData) to send **ros_wofisdata**(including Wheel Velocity Difference and Z-Axies Angular Velocity) by robot's linear and angular velocity.
   - [x] Custom define ROS data type(vwio_eskf::Q1Data) to receive **custom_q1_data** which is used to adjust the Process Covariance Matrix dynamically.
 ### Functionality to be completed
-- [ ] Construct **Visual Odometry Fuzzy Inference System** by Number of Feature Points and Reprojection Error from ORB features.
+- [ ] Construct **Visual Odometry Fuzzy Inference System** by Number of Feature Points and Reprojection Error from ORB features. -->
+- [x] <span style="color:green">Construst **Wheel-Inertial Odometry** (WIO).</span>
+- [x] <span style="color:green">Construst **Wheel-Visual Odometry** (WVO).</span>
+- [x] <span style="color:green">Wheel-Inertial Odometry (WIO) and Wheel-Visual Odometry (WVO) Fusion Localization by **ESKF/IESKF method**.</span>
+- [x] <span style="color:green">Construct **Wheel Odometry Fuzzy Inference System** (WOFIS) with another ROS Package [fis_wo](https://github.com/botlowhao/fis_wo).</span>
+  - [x] <span style="color:green">Custom define ROS data type(vwio_eskf::WOFISData) to send **ros_wofisdata** (including Wheel Velocity Difference and Z-Axes Angular Velocity) by robot's linear and angular velocity.</span>
+  - [x] <span style="color:green">Custom define ROS data type(vwio_eskf::Q1Data) to receive **custom_q1_data** which is used to adjust the Process Covariance Matrix dynamically.</span>
 
+### Functionality to be completed
+- [ ] <span style="color:red">Construct **Visual Odometry Fuzzy Inference System** by Number of Feature Points and Reprojection Error from ORB features.</span>
 ## Develop Environment
 OS:
 - Ubuntu 20.04 with NVIDIA Jeston Origin Nano(8GB RAM)
