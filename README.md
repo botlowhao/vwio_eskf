@@ -1,6 +1,8 @@
 # vwio_eskf
 ROS1 Package Using ESKF/IESKF Method for Muti-Sensor Fusion(Wheel Odometry, Inertial Odometry, Visual Odometry)
 ## Overview
+### System Structure Diagram With FIS
+![FIS-ESKF_Structure](./FIS-ESKF_Structure.jpg)
 ### Functionality completed
 - [x] Construst **Wheel-Inertial Odometry** (WIO).
 - [x] Construst **Wheel-Visual Odometry** (WVO).
