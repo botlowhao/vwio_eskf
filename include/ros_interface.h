@@ -51,8 +51,8 @@ private:
     ros::Subscriber q1_sub;
 
     // tf publish
-    // tf::TransformBroadcaster odom_to_baselink_broadcaster;
-    // geometry_msgs::TransformStamped odom_to_baselink;
+    tf::TransformBroadcaster odom_to_baselink_broadcaster;
+    geometry_msgs::TransformStamped odom_to_baselink;
 
     // publish data
     // nav_msgs::Path gps_path;
@@ -209,7 +209,7 @@ ROS_Interface::ROS_Interface(ros::NodeHandle &n)
     wo_odom_pub_ = nh.advertise<nav_msgs::Odometry>("/wo_pose", 50);
     wio_odom_pub_ = nh.advertise<nav_msgs::Odometry>("/wio_pose", 50);
     wvo_odom_pub_ = nh.advertise<nav_msgs::Odometry>("/wvo_pose", 50);
-    wofis_pub_ = nh.advertise<vwio_eskf::WOFISData>("WOFIS_msg", 100);
+    wofis_pub_ = nh.advertise<vwio_eskf::WOFISData>("/WOFIS_msg", 100);
 
     // Subscriber
     // gps_sub = nh.subscribe("/fix", 10, &ROS_Interface::gps_callback, this);
@@ -219,27 +219,27 @@ ROS_Interface::ROS_Interface(ros::NodeHandle &n)
     q1_sub = nh.subscribe("/Q1_msg", 10, &ROS_Interface::Q1_msg_callback, this);
 
     // init odom_path
-    odom_path.header.frame_id = "map";
+    odom_path.header.frame_id = "odom";
     odom_path.header.stamp = ros::Time::now();
     odom_path.header.seq = 0;
 
     // init wio_path
-    wio_path.header.frame_id = "map";
+    wio_path.header.frame_id = "odom";
     wio_path.header.stamp = ros::Time::now();
     wio_path.header.seq = 0;
 
     // init wo_path
-    wo_path.header.frame_id = "map";
+    wo_path.header.frame_id = "odom";
     wo_path.header.stamp = ros::Time::now();
     wo_path.header.seq = 0;
 
     // init wvo_path
-    wvo_path.header.frame_id = "map";
+    wvo_path.header.frame_id = "odom";
     wvo_path.header.stamp = ros::Time::now();
     wvo_path.header.seq = 0;
 
     // init estimated_path
-    estimated_path.header.frame_id = "map";
+    estimated_path.header.frame_id = "odom";
     estimated_path.header.stamp = ros::Time::now();
     estimated_path.header.seq = 0;
 }
@@ -257,7 +257,7 @@ void ROS_Interface::odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
 {
 
     double delta_time = 0.0;
-    wo_msg = odom_msg; // store and update the information of odom_msg
+    wo_msg = odom_msg; // store and update the information of odom_msgodom
 
     // If the system have NOT been INITIALIZED
     if (!init)
@@ -273,6 +273,10 @@ void ROS_Interface::odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
 
 void ROS_Interface::imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
 {
+    const char* RESET   = "\033[0m";
+    const char* GREEN   = "\033[32m";
+    const char* YELLOW  = "\033[33m";
+
     double dt = 0.0;
     delta_yaw = 0.0;
     data_conversion_wio(imu_msg, wio_data, dt);
@@ -285,7 +289,37 @@ void ROS_Interface::imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
         return;
     }
 
-    eskf.Predict(wio_data, dt, x);
+    eskf.Predict(wio_data, wo_data, dt, x);
+
+    // std::cout << GREEN << "WIO Position: [" 
+    //           << wio_data.position[0] << ", " 
+    //           << wio_data.position[1] << ", " 
+    //           << wio_data.position[2] << "]" 
+    //           << RESET << std::endl;
+
+    // std::cout << YELLOW << "Predict Position: [" 
+    //           << x.position[0] << ", " 
+    //           << x.position[1] << ", " 
+    //           << x.position[2] << "]" 
+    //           << RESET << std::endl;
+
+    // std::cout << GREEN << "WIO Orientation: [" 
+    //           << wio_data.quaternion.w() << ", " 
+    //           << wio_data.quaternion.x() << ", " 
+    //           << wio_data.quaternion.y() << ", " 
+    //           << wio_data.quaternion.z() << "]" 
+    //           << RESET << std::endl;
+
+    // std::cout << YELLOW << "Predict Orientation: [" 
+    //           << x.quaternion.w() << ", " 
+    //           << x.quaternion.x() << ", " 
+    //           << x.quaternion.y() << ", " 
+    //           << x.quaternion.z() << "]" 
+    //           << RESET << std::endl; 
+
+    // Eigen::Matrix3d R2 = wo_data.quaternion.toRotationMatrix();
+    // std::cout << GREEN << "R2 =" << R2 << std::endl;
+
 }
 
 void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg, WIO_Data &wio_data, double &dt)
@@ -368,9 +402,9 @@ void ROS_Interface::data_conversion_wio(const sensor_msgs::ImuConstPtr &imu_msg,
         wio_data.yaw_angle += 2 * M_PI;
     }
 
-    ROS_INFO("\033[1;31mWIO_Data.yaw_angle: %.2f degrees\033[0m", wio_data.yaw_angle * 180.0 / M_PI);
+    // ROS_INFO("\033[1;31mWIO_Data.yaw_angle: %.2f degrees\033[0m", wio_data.yaw_angle * 180.0 / M_PI);
 
-    ROS_INFO("\033[1;31mWIO_Data.linear_vel[0]: %.2f m/s\033[0m", wio_data.linear_vel[0]);
+    // ROS_INFO("\033[1;31mWIO_Data.linear_vel[0]: %.2f m/s\033[0m", wio_data.linear_vel[0]);
 
     wio_data.position[0] += wio_data.linear_vel[0] * cos(wio_data.yaw_angle) * dt;
     wio_data.position[1] += wio_data.linear_vel[0] * sin(wio_data.yaw_angle) * dt;
@@ -429,7 +463,7 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
     // publish odom_path
     geometry_msgs::PoseStamped odom_point;
-    odom_point.header.frame_id = "map";
+    odom_point.header.frame_id = "odom";
     odom_point.header.stamp = ros::Time::now();
     odom_point.pose.position.x = wo_msg->pose.pose.position.x;
     odom_point.pose.position.y = wo_msg->pose.pose.position.y;
@@ -443,7 +477,7 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
     // publish wio_path
     geometry_msgs::PoseStamped wio_point;
-    wio_point.header.frame_id = "map";
+    wio_point.header.frame_id = "odom";
     wio_point.header.stamp = ros::Time::now();
     wio_point.pose.position.x = wio_data.position[0];
     wio_point.pose.position.y = wio_data.position[1];
@@ -457,7 +491,7 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
     // publish wo_path
     geometry_msgs::PoseStamped wo_point;
-    wo_point.header.frame_id = "map";
+    wo_point.header.frame_id = "odom";
     wo_point.header.stamp = ros::Time::now();
     wo_point.pose.position.x = wo_data.position[0];
     wo_point.pose.position.y = wo_data.position[1];
@@ -471,7 +505,7 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
     // publish wvo_path
     geometry_msgs::PoseStamped wvo_point;
-    wvo_point.header.frame_id = "map";
+    wvo_point.header.frame_id = "odom";
     wvo_point.header.stamp = ros::Time::now();
     wvo_point.pose.position.x = wvo_data.position[0];
     wvo_point.pose.position.y = wvo_data.position[1];
@@ -481,7 +515,7 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
     // publish estimated_path
     geometry_msgs::PoseStamped estimated_point;
-    estimated_point.header.frame_id = "map";
+    estimated_point.header.frame_id = "odom";
     estimated_point.header.stamp = ros::Time::now();
     estimated_point.pose.position.x = x.position[0];
     estimated_point.pose.position.y = x.position[1];
@@ -495,23 +529,6 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
     estimated_path_pub.publish(estimated_path);
 
     /*---------------------------------------------------------------------
-     * Publish geometry_msgs::TransformStamped
-     --------------------------------------------------------------------*/
-
-    // /odom to /base_link transform broadcast
-    // odom_to_baselink.header.stamp = ros::Time::now();
-    // odom_to_baselink.header.frame_id = "odom";
-    // odom_to_baselink.child_frame_id = "base_link";
-    // odom_to_baselink.transform.translation.x = x.position[0];
-    // odom_to_baselink.transform.translation.y = x.position[1];
-    // odom_to_baselink.transform.translation.z = 0.0;
-    // odom_to_baselink.transform.rotation.x = x.quaternion.x();
-    // odom_to_baselink.transform.rotation.y = x.quaternion.y();
-    // odom_to_baselink.transform.rotation.z = x.quaternion.z();
-    // odom_to_baselink.transform.rotation.w = x.quaternion.w();
-    // odom_to_baselink_broadcaster.sendTransform(odom_to_baselink);
-
-    /*---------------------------------------------------------------------
      * Publish nav_msgs::Odometry
      --------------------------------------------------------------------*/
 
@@ -520,7 +537,7 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
     // publish wo_pose
     base_time += time_increment;
-    wo_pose.header.frame_id = "map";
+    wo_pose.header.frame_id = "odom";
     wo_pose.child_frame_id = "base_link";
     wo_pose.header.stamp = base_time;
     wo_pose.pose.pose.position.x = wo_data.position[0];
@@ -534,7 +551,7 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
     // publish wio_pose
     base_time += time_increment;
-    wio_pose.header.frame_id = "map";
+    wio_pose.header.frame_id = "odom";
     wio_pose.child_frame_id = "base_link";
     wio_pose.header.stamp = base_time;
     wio_pose.pose.pose.position.x = wio_data.position[0];
@@ -548,7 +565,7 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
     // publish wvo_pose
     base_time += time_increment;
-    wvo_pose.header.frame_id = "map";
+    wvo_pose.header.frame_id = "odom";
     wvo_pose.child_frame_id = "base_link";
     wvo_pose.header.stamp = base_time;
     wvo_pose.pose.pose.position.x = wvo_data.position[0];
@@ -562,7 +579,7 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
 
     // publish state_pose
     base_time += time_increment;
-    state_pose.header.frame_id = "map";
+    state_pose.header.frame_id = "odom";
     state_pose.child_frame_id = "base_link";
     state_pose.header.stamp = base_time;
     state_pose.pose.pose.position.x = x.position[0];
@@ -573,6 +590,25 @@ void ROS_Interface::visual_odom_callback(const nav_msgs::OdometryConstPtr &vodom
     state_pose.pose.pose.orientation.z = x.quaternion.z();
     state_pose.pose.pose.orientation.w = x.quaternion.w();
     state_odom_pub_.publish(state_pose);
+
+
+    /*---------------------------------------------------------------------
+     * Publish geometry_msgs::TransformStamped
+     --------------------------------------------------------------------*/
+
+    // /odom to /base_link transform broadcast
+    odom_to_baselink.header.stamp = ros::Time::now();
+    odom_to_baselink.header.frame_id = "odom";
+    odom_to_baselink.child_frame_id = "base_link";
+    odom_to_baselink.transform.translation.x = x.position[0];
+    odom_to_baselink.transform.translation.y = x.position[1];
+    odom_to_baselink.transform.translation.z = 0.0;
+    odom_to_baselink.transform.rotation.x = x.quaternion.x();
+    odom_to_baselink.transform.rotation.y = x.quaternion.y();
+    odom_to_baselink.transform.rotation.z = x.quaternion.z();
+    odom_to_baselink.transform.rotation.w = x.quaternion.w();
+    odom_to_baselink_broadcaster.sendTransform(odom_to_baselink);
+
 }
 
 void ROS_Interface::data_conversion_wvo(const nav_msgs::OdometryConstPtr &vodom_msg, const WO_Data &wo_data, WVO_Data &wvo_data)
@@ -656,8 +692,8 @@ double ROS_Interface::calculateOrientation(const Eigen::Quaterniond &orientation
         yaw = atan2(mat(1, 0), mat(0, 0));
     }
 
-    ROS_INFO("\033[1;32mWO Orientation: Roll=%f, Pitch=%f, Yaw=%f\033[0m",
-             roll * 180.0 / M_PI, pitch * 180.0 / M_PI, yaw * 180.0 / M_PI);
+    // ROS_INFO("\033[1;32mWO Orientation: Roll=%f, Pitch=%f, Yaw=%f\033[0m",
+    //          roll * 180.0 / M_PI, pitch * 180.0 / M_PI, yaw * 180.0 / M_PI);
 
     return yaw;
 }

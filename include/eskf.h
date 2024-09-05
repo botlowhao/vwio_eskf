@@ -14,8 +14,8 @@ public:
 
 private:
     // Init
-    double position_noise = 1.2;
-    double velocity_noise = 10.0;
+    double position_noise = 1.0;
+    double velocity_noise = 8.0;
     double posture_noise = 1.0;
 
     // Predict
@@ -57,7 +57,7 @@ public:
      * @param dt sampling time
      * @param x Robot status
      */
-    void Predict(const WIO_Data &wio_data, const double &dt, State &x);
+    void Predict(const WIO_Data &wio_data, const WO_Data &wo_data, const double &dt, State &x);
 
     /**
      * @brief Correct the robot's status by Inter-frame Visual Odometry Data
@@ -93,6 +93,9 @@ public:
     // test code
     Eigen::Quaterniond getQuaFromAA(Eigen::Vector3d vec);
     Eigen::Matrix<double, 3, 3> getRotFromAA(Eigen::Vector3d vec);
+
+    void predict_position_filter(State &x);
+    void predict_quaternion_filter(const WO_Data &wo_data, State &x);
 };
 
 /***********************************************************************
@@ -147,18 +150,19 @@ void ESKF::Init(const nav_msgs::OdometryConstPtr &odom_msg, State &x)
  * covariance
  * P_{k} = F_k P_{k-1} F_k^T + L Q_k L^T
  */
-void ESKF::Predict(const WIO_Data &wio_data, const double &dt, State &x)
+void ESKF::Predict(const WIO_Data &wio_data, const WO_Data &wo_data, const double &dt, State &x)
 {
-
     Eigen::Matrix3d R = x.quaternion.toRotationMatrix();
+    // Eigen::Matrix3d R1 = Eigen::Quaterniond::Identity().toRotationMatrix();
+    // std::cout << "R1 =" << R1 << std::endl;
 
     // state update //
     x.position = x.position + x.velocity * dt + 0.5 * (R * (wio_data.acc - x.acc_bias) + x.gravity) * dt * dt;
     x.velocity = x.velocity + (R * (wio_data.acc - x.acc_bias) + x.gravity) * dt;
-    // x.quaternion = kronecker_product(x.quaternion, euler_to_quatertion((imu_data.gyro - x.gyro_bias) * dt));
+    // x.quaternion = kronecker_product(x.quaternion, euler_to_quatertion((wio_data.gyro - x.gyro_bias) * dt));
 
     // Eigen::Vector3d q_v = (wio_data.gyro - x.gyro_bias) * dt;
-    // x.quaternion = x.quaternion * getQuaFromAA(q_v);
+    // x.quaternion = x.quaternion * getQuaFromAA(q_v)
 
     // Update quaternion if both current and last quaternions are valid
     if (wio_data.quaternion.norm() != 0 && last_wio_orientation.norm() != 0)
@@ -190,6 +194,9 @@ void ESKF::Predict(const WIO_Data &wio_data, const double &dt, State &x)
     {
         last_wio_orientation = wio_data.quaternion;
     }
+
+    predict_position_filter(x);
+    predict_quaternion_filter(wo_data, x);
 
     // calcurate Jacobian Fx
     Fx = calcurate_Jacobian_Fx(wio_data.acc, x.acc_bias, R, dt);
@@ -339,7 +346,7 @@ void ESKF::CorrectWithIterators(const WVO_Data &wvo_data, int max_iterations, do
     Eigen::MatrixXd K;
 
     // Iterative correction
-    for(int i = 0; i < max_iterations; ++i)
+    for (int i = 0; i < max_iterations; ++i)
     {
         // Calculate Jacobian H
         H = calcurate_Jacobian_H(x);
@@ -354,14 +361,13 @@ void ESKF::CorrectWithIterators(const WVO_Data &wvo_data, int max_iterations, do
         x.error = dx;
 
         // Check for convergence
-        if(dx.norm() < convergence_threshold)
+        if (dx.norm() < convergence_threshold)
             break;
     }
 
     // Update covariance matrix PEst using the last calculated K and H
     x.PEst = (Eigen::Matrix<double, 18, 18>::Identity() - K * H) * x.PEst;
 }
-
 
 Eigen::Matrix<double, 3, 18> ESKF::calcurate_Jacobian_H(State &x)
 {
@@ -400,6 +406,7 @@ void ESKF::State_update(State &x)
     x.velocity = x.velocity + error_vel;
     // x.quaternion = kronecker_product(error_quat, x.quaternion);
     x.quaternion = x.quaternion * getQuaFromAA(error_ori);
+
     x.acc_bias = x.acc_bias + error_acc_bias;
     x.gyro_bias = x.gyro_bias + error_gyr_bias;
     x.gravity = x.gravity + error_gra;
@@ -506,6 +513,72 @@ Eigen::Matrix<double, 3, 3> ESKF::getRotFromAA(Eigen::Vector3d vec)
     R = unit_mat * cos_th + (1 - cos_th) * unit_axis * unit_axis.transpose() + sin_th * skewsym_matrix(unit_axis);
 
     return R;
+}
+
+void ESKF::predict_position_filter(State &x)
+{
+    // Define the maximum allowable change in position (example threshold values)
+    Eigen::Vector3d max_position_change(10.0, 10.0, 0.5); // Adjust these values as needed
+
+    Eigen::Vector3d previous_position;
+
+    // Calculate the change in position
+    Eigen::Vector3d position_change = x.position - previous_position;
+
+    // Apply saturation filter to limit the change in position
+    for (int i = 0; i < 3; ++i)
+    {
+        if (std::abs(position_change[i]) > max_position_change[i])
+        {
+            position_change[i] = max_position_change[i] * (position_change[i] > 0 ? 1 : -1);
+        }
+    }
+
+    // Update the position with the limited change
+    x.position = previous_position + position_change;
+
+    // Store the current position for the next iteration
+    previous_position = x.position;
+}
+
+void ESKF::predict_quaternion_filter(const WO_Data &wo_data, State &x)
+{
+    // 假设 wo_data.quaternion 和 x.quaternion 是 Eigen::Quaterniond 类型
+    Eigen::Quaterniond wo_data_quat(wo_data.quaternion.w(), wo_data.quaternion.x(), wo_data.quaternion.y(), wo_data.quaternion.z());
+    Eigen::Quaterniond x_quat(x.quaternion.w(), x.quaternion.x(), x.quaternion.y(), x.quaternion.z());
+
+    // Step 1: 将四元数转换为欧拉角 (roll, pitch, yaw)
+    Eigen::Vector3d wo_euler = wo_data_quat.toRotationMatrix().eulerAngles(2, 1, 0); // ZYX顺序 (yaw, pitch, roll)
+    Eigen::Vector3d x_euler = x_quat.toRotationMatrix().eulerAngles(2, 1, 0);        // ZYX顺序 (yaw, pitch, roll)
+
+    // Step 2: 使用 wo_data 的 roll 和 pitch，结合 x 的 yaw
+    double new_roll = wo_euler(2);  // roll 来自 wo_data
+    double new_pitch = wo_euler(1); // pitch 来自 wo_data
+    double new_yaw = x_euler(0);    // yaw 来自 x
+
+    // Step 3: 将组合后的欧拉角 (roll, pitch, yaw) 转换为新的四元数
+    Eigen::Quaterniond quat_from_euler;
+    quat_from_euler = Eigen::AngleAxisd(new_yaw, Eigen::Vector3d::UnitZ()) *
+                      Eigen::AngleAxisd(new_pitch, Eigen::Vector3d::UnitY()) *
+                      Eigen::AngleAxisd(new_roll, Eigen::Vector3d::UnitX());
+
+    // Step 4: 检查四元数方向，纠正符号问题
+    Eigen::Quaterniond fused_quat;
+    if (quat_from_euler.dot(x_quat) < 0)
+    {
+        // 使用共轭实现取反
+        fused_quat = -quat_from_euler.coeffs(); // 直接创建负四元数
+    }
+    else
+    {
+        fused_quat = quat_from_euler;
+    }
+    // 更新状态
+    x.quaternion = fused_quat;
+
+    // 输出结果
+    // std::cout << "Fused Quaternion (w, x, y, z): " << x.quaternion.w() << ", " << x.quaternion.x() << ", "
+    //           << x.quaternion.y() << ", " << x.quaternion.z() << std::endl;
 }
 
 #endif // ESKF

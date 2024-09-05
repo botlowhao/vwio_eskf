@@ -50,13 +50,13 @@ WOFISData FIS_Getdata::getValueForWOFIS(double v_x, double w_z)
     v_r = (2 * v_x - w_z * b) * 60 / (4 * M_PI * r);
 
     // Print v_l and v_r to the terminal
-    std::cout << "Left wheel velocity (v_l): " << v_l << " RPM" << std::endl;
-    std::cout << "Right wheel velocity (v_r): " << v_r << " RPM" << std::endl;
+    // std::cout << "Left wheel velocity (v_l): " << v_l << " RPM" << std::endl;
+    // std::cout << "Right wheel velocity (v_r): " << v_r << " RPM" << std::endl;
 
     // Calculate the wheel speed difference and take the absolute value (in RPM)
     delta_v = std::abs(v_l - v_r);
-    std::cout << "Velocity Difference(delta_v): " << delta_v << " RPM" << std::endl;
-    std::cout << "Angular Velocity of Z-Axis (w_z): " << w_z << " rad/s" << std::endl;
+    // std::cout << "Velocity Difference(delta_v): " << delta_v << " RPM" << std::endl;
+    // std::cout << "Angular Velocity of Z-Axis (w_z): " << w_z << " rad/s" << std::endl;
 
     // // Open the CSV file in append mode
     // std::ofstream outfile;

@@ -2,11 +2,14 @@
     <!-- tf satic -->
     <!-- <node pkg="tf" type="static_transform_publisher" name="map_to_odom" args="0 0 0 0 0 0 map odom 100" /> -->
 
+    <node pkg="tf" type="static_transform_publisher" name="base_link_to_base_footprint" 
+          args="0 0 0 0 0 0 base_link base_footprint 100" />    
+
     <!-- launch the eskf_localization node  -->
     <node pkg="vwio_eskf" name="eskf_localization" type="eskf_localization" output="screen"/>
 
-    <!-- play dataset -->
-    <node pkg="rosbag" type="play" name="player" output="screen" args="--clock /home/wyatt/catkin_ws/src/vwio_eskf/dataset/20240425_record/sensor_sync_8.bag"/>
+    <node pkg="rosbag" type="play" name="player" output="screen"
+        args="--clock --bags /home/wyatt/catkin_ws/src/vwio_eskf/dataset/20240425_record/sensor_sync_8.bag --topics /wo_sync /imu_sync /vo_sync /tf_static"/>    
 
     <!--display rviz-->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find vwio_eskf)/rviz/vwio_eskf_localization.rviz" required="true"/>

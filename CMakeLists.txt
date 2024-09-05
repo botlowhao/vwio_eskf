@@ -17,6 +17,7 @@ add_message_files(
   FILES
   WOFISData.msg
   Q1Data.msg
+  V1Data.msg
 )
 
 generate_messages(
