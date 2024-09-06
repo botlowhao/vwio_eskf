@@ -19,6 +19,7 @@
 #include "filter.h"
 #include "vwio_eskf/WOFISData.h" 
 #include "vwio_eskf/Q1Data.h"
+#include "vwio_eskf/V1Data.h"
 
 #include <fstream> // Include this for file handling
 
@@ -49,6 +50,7 @@ private:
     ros::Subscriber imu_sub;
     ros::Subscriber visual_odom_sub;
     ros::Subscriber q1_sub;
+    ros::Subscriber v1_sub;
 
     // tf publish
     tf::TransformBroadcaster odom_to_baselink_broadcaster;
@@ -186,6 +188,9 @@ public:
      * 
      */
     void Q1_msg_callback(const vwio_eskf::Q1Data &ros_q1_data);
+
+    
+    void V1_msg_callback(const vwio_eskf::V1Data &ros_v1_data);
 };
 
 /***********************************************************************
@@ -217,6 +222,7 @@ ROS_Interface::ROS_Interface(ros::NodeHandle &n)
     imu_sub = nh.subscribe("/imu_sync", 10, &ROS_Interface::imu_callback, this);
     visual_odom_sub = nh.subscribe("/vo_sync", 10, &ROS_Interface::visual_odom_callback, this);
     q1_sub = nh.subscribe("/Q1_msg", 10, &ROS_Interface::Q1_msg_callback, this);
+    v1_sub = nh.subscribe("/V1_msg", 10, &ROS_Interface::V1_msg_callback, this);
 
     // init odom_path
     odom_path.header.frame_id = "odom";
@@ -729,6 +735,11 @@ void ROS_Interface::publish_WOFIS()
 void ROS_Interface::Q1_msg_callback(const vwio_eskf::Q1Data &ros_q1_data)
 {
     eskf.custom_q1_data.q1 = ros_q1_data.q1;
+}
+
+void ROS_Interface::V1_msg_callback(const vwio_eskf::V1Data &ros_v1_data)
+{
+    eskf.custom_v1_data.v1 = ros_v1_data.v1;
 }
 
 #endif // ROS_INTERFACE

@@ -4,13 +4,16 @@
 #include <iostream>
 #include "state_variable.h"
 #include "vwio_eskf/Q1Data.h"
+#include "vwio_eskf/V1Data.h"
 
 using namespace std;
 
 class ESKF
 {
+
 public:
     vwio_eskf::Q1Data custom_q1_data;
+    vwio_eskf::V1Data custom_v1_data;
 
 private:
     // Init
@@ -195,6 +198,7 @@ void ESKF::Predict(const WIO_Data &wio_data, const WO_Data &wo_data, const doubl
         last_wio_orientation = wio_data.quaternion;
     }
 
+    // filterd the position and quaternion from Predict Step
     predict_position_filter(x);
     predict_quaternion_filter(wo_data, x);
 
@@ -340,6 +344,16 @@ void ESKF::CorrectWithIterators(const WVO_Data &wvo_data, int max_iterations, do
 
     // Noise covariance matrix
     Eigen::Matrix3d V = pose_noise * Eigen::Matrix3d::Identity();
+
+    // std::cout << "===================================" << std::endl;
+    // std::cout << "pose noise" << pose_noise << std::endl;
+
+    // Noise covariance matrix From VOFIS
+    Eigen::Matrix3d V1 = 20.00 * custom_v1_data.v1 * Eigen::Matrix3d::Identity();
+
+    // std::cout << "custom_v1_data" << custom_v1_data.v1 << std::endl;
+    // std::cout << "===================================" << std::endl;
+
 
     // Initialize Kalman gain K and Jacobian H outside the loop
     Eigen::Matrix<double, 3, 18> H;
