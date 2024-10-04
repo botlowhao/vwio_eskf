@@ -54,40 +54,43 @@ WOFISData FIS_Getdata::getValueForWOFIS(double v_x, double w_z)
     // std::cout << "Right wheel velocity (v_r): " << v_r << " RPM" << std::endl;
 
     // Calculate the wheel speed difference and take the absolute value (in RPM)
-    delta_v = std::abs(v_l - v_r);
+    // delta_v = std::abs(v_l - v_r);
+    delta_v = v_r - v_l;
     // std::cout << "Velocity Difference(delta_v): " << delta_v << " RPM" << std::endl;
     // std::cout << "Angular Velocity of Z-Axis (w_z): " << w_z << " rad/s" << std::endl;
 
     // // Open the CSV file in append mode
-    // std::ofstream outfile;
-    // outfile.open("/home/wyatt/catkin_ws/src/vwio_eskf/888.csv", std::ios_base::app);
+    std::ofstream outfile;
+    outfile.open("/home/wyatt/catkin_ws/src/fis_wo/ANFIS_dateset/FIS_WO_81.csv", std::ios_base::app);
 
-    // // Check if the file was successfully opened
-    // if (outfile.is_open())
-    // {
-    //     // If the file is empty, write the column headers
-    //     outfile.seekp(0, std::ios::end);
-    //     if (outfile.tellp() == 0)
-    //     {
-    //         outfile << "delta_v (RPM),w (rad/s)\n";
-    //     }
+    // Check if the file was successfully opened
+    if (outfile.is_open())
+    {
+        // If the file is empty, write the column headers
+        outfile.seekp(0, std::ios::end);
+        if (outfile.tellp() == 0)
+        {
+            outfile << "delta_v (RPM),w (rad/s),v_x (m/s)\n";
+        }
 
-    //     // Write delta_v and w to the CSV file
-    //     // delta_v in RPM, w in radians/second
-    //     outfile << delta_v << "," << w_z << "\n";
-    //     // Close the file
-    //     outfile.close();
-    // }
-    // else
-    // {
-    //     // If the file cannot be opened, output an error message
-    //     std::cerr << "Unable to open file" << std::endl;
-    // }
+        // Write delta_v and w to the CSV file
+        // delta_v in RPM, w in radians/second
+        outfile << delta_v << "," << w_z << "," << v_x << "\n";
+
+        // Close the file
+        outfile.close();
+    }
+    else
+    {
+        // If the file cannot be opened, output an error message
+        std::cerr << "Unable to open file" << std::endl;
+    }
 
     // Return the computed values in a WOFISData struct
     WOFISData wofis_value;
     wofis_value.delta_v = delta_v;
     wofis_value.w_z = w_z;
+    wofis_value.v_x = v_x;
     return wofis_value;
 }
 

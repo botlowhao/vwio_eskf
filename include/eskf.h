@@ -215,10 +215,10 @@ void ESKF::Predict(const WIO_Data &wio_data, const WO_Data &wo_data, const doubl
     Qi_fis = calcurate_Jacobian_Qi_WithFIS(dt);
 
     // calcurate PEst
-    // x.PEst = Fx * x.PEst * Fx.transpose() + Fi * Qi * Fi.transpose();
+    x.PEst = Fx * x.PEst * Fx.transpose() + Fi * Qi * Fi.transpose();
 
     // Calcurate PEst When FIS-WO Have Activated
-    x.PEst = Fx * x.PEst * Fx.transpose() + Fi_fis * Qi_fis * Fi_fis.transpose();
+    // x.PEst = Fx * x.PEst * Fx.transpose() + Fi_fis * Qi_fis * Fi_fis.transpose();
 }
 
 Eigen::Matrix<double, 18, 18> ESKF::calcurate_Jacobian_Fx(Eigen::Vector3d acc, Eigen::Vector3d acc_bias, Eigen::Matrix3d R, const double dt)

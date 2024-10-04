@@ -729,6 +729,7 @@ void ROS_Interface::publish_WOFIS()
     // 将 WOFISData 类型转换为 vwio_eskf::WOFISData 类型
     ros_wofisdata.delta_v = custom_wofisdata.delta_v;
     ros_wofisdata.w_z = custom_wofisdata.w_z;
+    ros_wofisdata.v_x = custom_wofisdata.v_x;
     wofis_pub_.publish(ros_wofisdata);
 }
 

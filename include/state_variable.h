@@ -107,9 +107,11 @@ struct State
 struct WOFISData {
     double delta_v;
     double w_z;
+    double v_x;
 
     WOFISData() : delta_v(0.0),
-                  w_z(0.0)
+                  w_z(0.0),
+                  v_x(0.0)
 
     {
 
