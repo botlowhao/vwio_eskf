@@ -278,17 +278,18 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        camera_rgb_frame:
-          camera_link:
-            camera_depth_frame:
-              camera_depth_optical_frame:
-                {}
-          camera_rgb_optical_frame:
-            {}
         odom:
           base_link:
             base_footprint:
               {}
+            camera_rgb_frame:
+              camera_depth_frame:
+                camera_depth_optical_frame:
+                  {}
+              camera_link:
+                {}
+              camera_rgb_optical_frame:
+                {}
             caster_back_link:
               {}
             caster_front_link:
@@ -371,7 +372,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 9.362359046936035
+      Distance: 4.30577278137207
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -379,17 +380,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.8008595705032349
-        Y: 0.42121291160583496
-        Z: 1.5213017832138576e-06
+        X: -0.11836349964141846
+        Y: 0.5217133164405823
+        Z: -1.4589304555556737e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Pitch: 1.279797077178955
       Target Frame: <Fixed Frame>
-      Yaw: 4.6593337059021
+      Yaw: 3.074335813522339
     Saved: ~
 Window Geometry:
   Displays:

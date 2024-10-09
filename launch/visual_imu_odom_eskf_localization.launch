@@ -9,7 +9,7 @@
     <node pkg="vwio_eskf" name="eskf_localization" type="eskf_localization" output="screen"/>
 
     <node pkg="rosbag" type="play" name="player" output="screen"
-        args="--clock --bags /home/wyatt/catkin_ws/src/vwio_eskf/dataset/20240425_record/sensor_sync_8.bag --topics /wo_sync /imu_sync /vo_sync /tf_static"/>    
+        args="--clock --bags /home/wyatt/catkin_ws/src/vwio_eskf/dataset/fis_ieskf_20241008/ieskf_synced_20241008_StraightB.bag"/>    
 
     <!--display rviz-->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find vwio_eskf)/rviz/vwio_eskf_localization.rviz" required="true"/>
